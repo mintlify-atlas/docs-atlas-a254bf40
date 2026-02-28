@@ -1,0 +1,177 @@
+{
+  "projectType": "saas",
+  "projectName": "Rowboat",
+  "projectDescription": "Open-source AI coworker that turns work into a knowledge graph and acts on it",
+  "theme": "maple",
+  "primaryColor": "#10b981",
+  "lightColor": "#10b981",
+  "darkColor": "#10b981",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core-concepts/knowledge-graph",
+              "core-concepts/memory-system",
+              "core-concepts/background-agents",
+              "core-concepts/local-first"
+            ]
+          },
+          {
+            "group": "Desktop App",
+            "pages": [
+              "desktop/overview",
+              "desktop/features",
+              "desktop/model-configuration",
+              "desktop/workspace"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/gmail",
+              "integrations/google-calendar",
+              "integrations/granola",
+              "integrations/fireflies",
+              "integrations/mcp",
+              "integrations/slack"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "use-cases/meeting-prep",
+              "use-cases/email-drafting",
+              "use-cases/document-collaboration",
+              "use-cases/presentations",
+              "use-cases/voice-notes"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/google-setup",
+              "configuration/models",
+              "configuration/deepgram",
+              "configuration/web-search",
+              "configuration/note-creation"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Platform",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "platform/introduction",
+              "platform/architecture"
+            ]
+          },
+          {
+            "group": "CLI Tool",
+            "pages": [
+              "platform/cli/overview",
+              "platform/cli/installation",
+              "platform/cli/commands"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "platform/python-sdk/overview",
+              "platform/python-sdk/installation",
+              "platform/python-sdk/usage",
+              "platform/python-sdk/api-reference"
+            ]
+          },
+          {
+            "group": "Web Platform",
+            "pages": [
+              "platform/web/overview",
+              "platform/web/deployment",
+              "platform/web/configuration"
+            ]
+          },
+          {
+            "group": "Agent System",
+            "pages": [
+              "platform/agents/overview",
+              "platform/agents/runtime",
+              "platform/agents/background-agents",
+              "platform/agents/skills"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/overview",
+              "development/monorepo-structure",
+              "development/electron-app",
+              "development/building",
+              "development/testing"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture/overview",
+              "development/architecture/knowledge-system",
+              "development/architecture/ai-integration",
+              "development/architecture/oauth"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "development/license",
+              "development/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Local-first AI coworker with persistent memory",
+    "Knowledge graph built from emails, calendar, and meeting notes",
+    "Background agents for automated workflows",
+    "Obsidian-compatible markdown workspace",
+    "Meeting prep and email drafting",
+    "Document collaboration and presentation creation",
+    "MCP (Model Context Protocol) integration",
+    "Multi-model support (OpenAI, Anthropic, Google, Ollama)",
+    "Gmail, Calendar, and Drive integration",
+    "Voice notes with Deepgram",
+    "Slack integration",
+    "Web search with Brave and Exa"
+  ],
+  "publicApiSurface": [
+    "Desktop App (Electron) - Main user interface",
+    "CLI Tool - rowboatx command-line interface",
+    "Python SDK - Client.run_turn() API",
+    "Web Platform - Next.js dashboard",
+    "REST API - Hono server with runs, agents, MCP endpoints",
+    "Knowledge Graph - Markdown-based workspace API",
+    "Agent Runtime - Background agent execution",
+    "MCP Integration - Tool and server management",
+    "OAuth Clients - Google, Slack authentication"
+  ]
+}
