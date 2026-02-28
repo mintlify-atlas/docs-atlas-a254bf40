@@ -1,0 +1,440 @@
+---
+title: Model Context Protocol (MCP)
+description: Connect external tools and data sources via MCP servers
+---
+
+Rowboat supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), enabling connections to external tools, APIs, and data sources.
+
+## Overview
+
+MCP allows you to:
+- Connect to external APIs and services
+- Execute tools via MCP servers
+- Extend Rowboat's capabilities with custom integrations
+- Use both local (stdio) and remote (HTTP/SSE) MCP servers
+
+<Info>
+MCP is an open standard for connecting AI assistants to external data sources and tools.
+</Info>
+
+## Configuration
+
+### Config File Location
+
+```typescript
+const configPath = path.join(WorkDir, 'config', 'mcp.json');
+```
+
+Location: `~/.rowboat/config/mcp.json`
+
+### Config Format
+
+```json
+{
+  "mcpServers": {
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/files"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}
+```
+
+## Server Types
+
+### HTTP/SSE Servers
+
+For remote MCP servers over HTTP or Server-Sent Events:
+
+```typescript
+if (config.type === "http") {
+  try {
+    transport = new StreamableHTTPClientTransport(new URL(config.url));
+  } catch {
+    // Fallback to SSE if HTTP fails
+    transport = new SSEClientTransport(new URL(config.url));
+  }
+}
+```
+
+#### Example: Exa Search
+
+```json
+{
+  "exa": {
+    "type": "http",
+    "url": "https://mcp.exa.ai/mcp"
+  }
+}
+```
+
+### Stdio Servers
+
+For local MCP servers that run as child processes:
+
+```typescript
+if (config.type === "stdio") {
+  transport = new StdioClientTransport({
+    command: config.command,
+    args: config.args,
+    env: config.env,
+  });
+}
+```
+
+#### Example: Local Filesystem Server
+
+```json
+{
+  "filesystem": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "/Users/username/Documents"
+    ]
+  }
+}
+```
+
+<Warning>
+Stdio servers spawn a new process. Make sure the command is installed and accessible in your PATH.
+</Warning>
+
+## Client Management
+
+### Connection States
+
+```typescript
+type ConnectionState = "connected" | "disconnected" | "error";
+
+interface McpState {
+  state: ConnectionState;
+  client: Client | null;
+  error: string | null;
+}
+```
+
+### Lazy Connection
+
+Clients are created on first use:
+
+```typescript
+async function getClient(serverName: string): Promise<Client> {
+  if (clients[serverName] && clients[serverName].state === "connected") {
+    return clients[serverName].client!; // Reuse existing
+  }
+  
+  const config = mcpServers[serverName];
+  if (!config) {
+    throw new Error(`MCP server ${serverName} not found`);
+  }
+  
+  // Create transport
+  const transport = createTransport(config);
+  
+  // Create client
+  const client = new Client({
+    name: 'rowboatx',
+    version: '1.0.0',
+  });
+  
+  await client.connect(transport);
+  
+  clients[serverName] = {
+    state: "connected",
+    client,
+    error: null,
+  };
+  
+  return client;
+}
+```
+
+## Using MCP Tools
+
+### List Available Tools
+
+```typescript
+export async function listTools(
+  serverName: string,
+  cursor?: string
+): Promise<{ tools: Tool[]; nextCursor?: string }> {
+  const client = await getClient(serverName);
+  const { tools, nextCursor } = await client.listTools({ cursor });
+  return { tools, nextCursor };
+}
+```
+
+### Execute a Tool
+
+```typescript
+export async function executeTool(
+  serverName: string,
+  toolName: string,
+  input: Record<string, unknown>
+): Promise<unknown> {
+  const client = await getClient(serverName);
+  const result = await client.callTool({
+    name: toolName,
+    arguments: input,
+  });
+  return result;
+}
+```
+
+### Example: Execute Exa Search
+
+```typescript
+const result = await executeTool(
+  'exa',
+  'exa_search',
+  {
+    query: 'latest AI news',
+    numResults: 10,
+  }
+);
+```
+
+## List MCP Servers
+
+```typescript
+export async function listServers(): Promise<{
+  mcpServers: Record<string, {
+    config: McpServerDefinition;
+    state: ConnectionState;
+    error: string | null;
+  }>;
+}> {
+  const { mcpServers } = await repo.getConfig();
+  const result = { mcpServers: {} };
+  
+  for (const [serverName, config] of Object.entries(mcpServers)) {
+    const state = clients[serverName];
+    result.mcpServers[serverName] = {
+      config,
+      state: state ? state.state : "disconnected",
+      error: state ? state.error : null,
+    };
+  }
+  
+  return result;
+}
+```
+
+## Managing Servers
+
+### Add/Update Server
+
+```typescript
+export class FSMcpConfigRepo implements IMcpConfigRepo {
+  async upsert(
+    serverName: string,
+    config: McpServerDefinition
+  ): Promise<void> {
+    const conf = await this.getConfig();
+    conf.mcpServers[serverName] = config;
+    await fs.writeFile(this.configPath, JSON.stringify(conf, null, 2));
+  }
+}
+```
+
+### Remove Server
+
+```typescript
+async delete(serverName: string): Promise<void> {
+  const conf = await this.getConfig();
+  delete conf.mcpServers[serverName];
+  await fs.writeFile(this.configPath, JSON.stringify(conf, null, 2));
+}
+```
+
+## Cleanup
+
+### Close All Connections
+
+```typescript
+export async function cleanup() {
+  for (const [serverName, { client }] of Object.entries(clients)) {
+    await client?.transport?.close();
+    await client?.close();
+    delete clients[serverName];
+  }
+}
+```
+
+### Force Close (During Abort)
+
+```typescript
+export async function forceCloseAllMcpClients(): Promise<void> {
+  for (const [serverName, { client }] of Object.entries(clients)) {
+    try {
+      await client?.close();
+    } catch {
+      // Ignore errors during force close
+    }
+    delete clients[serverName];
+  }
+}
+```
+
+<Info>
+Clients are automatically reconnected on next use after force close.
+</Info>
+
+## Default Servers
+
+Rowboat comes with Exa search pre-configured:
+
+```typescript
+const DEFAULT_MCP_SERVERS = {
+  exa: {
+    type: "http" as const,
+    url: "https://mcp.exa.ai/mcp",
+  },
+};
+```
+
+## Configuration Schema
+
+```typescript
+const McpServerDefinition = z.union([
+  z.object({
+    type: z.literal("http"),
+    url: z.string(),
+  }),
+  z.object({
+    type: z.literal("stdio"),
+    command: z.string(),
+    args: z.array(z.string()).optional(),
+    env: z.record(z.string(), z.string()).optional(),
+  }),
+]);
+
+const McpServerConfig = z.object({
+  mcpServers: z.record(z.string(), McpServerDefinition),
+});
+```
+
+## Example: Custom MCP Server
+
+Here's how to add a custom MCP server:
+
+```json
+{
+  "mcpServers": {
+    "my-custom-server": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "my_mcp_server"],
+      "env": {
+        "API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Then use it:
+
+```typescript
+const tools = await listTools('my-custom-server');
+const result = await executeTool('my-custom-server', 'my_tool', { param: 'value' });
+```
+
+## Troubleshooting
+
+### Connection Errors
+
+If a server fails to connect:
+
+```typescript
+try {
+  await client.connect(transport);
+} catch (error) {
+  clients[serverName] = {
+    state: "error",
+    client: null,
+    error: error instanceof Error ? error.message : "Unknown error",
+  };
+  transport?.close();
+  throw error;
+}
+```
+
+Check the error in the server list:
+
+```typescript
+const servers = await listServers();
+console.log(servers.mcpServers['my-server'].error);
+```
+
+### Stdio Server Won't Start
+
+<Warning>
+Make sure the command is executable and in your PATH. Test it manually first:
+</Warning>
+
+```bash
+npx -y @modelcontextprotocol/server-filesystem /path/to/files
+```
+
+### Transport Type Mismatch
+
+If you're not sure whether a server uses HTTP or SSE, try HTTP first:
+
+```typescript
+try {
+  transport = new StreamableHTTPClientTransport(new URL(config.url));
+} catch {
+  // Fallback to SSE
+  transport = new SSEClientTransport(new URL(config.url));
+}
+```
+
+## Use Cases
+
+### Web Search (Exa)
+
+```typescript
+const results = await executeTool('exa', 'exa_search', {
+  query: 'Model Context Protocol',
+  numResults: 5,
+});
+```
+
+### File System Access
+
+```typescript
+const files = await executeTool('filesystem', 'list_directory', {
+  path: '/Users/username/Documents',
+});
+```
+
+### Database Queries
+
+```json
+{
+  "postgres": {
+    "type": "stdio",
+    "command": "mcp-server-postgres",
+    "env": {
+      "DATABASE_URL": "postgresql://localhost/mydb"
+    }
+  }
+}
+```
+
+## Related Integrations
+
+- [Fireflies](/integrations/fireflies) - Uses MCP for API access
+- [Slack](/integrations/slack) - Could use MCP for custom tools

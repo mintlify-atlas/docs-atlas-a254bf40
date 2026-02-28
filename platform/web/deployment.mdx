@@ -1,0 +1,330 @@
+---
+title: 'Deploying with Docker'
+description: 'Deploy the Rowboat web platform using Docker Compose'
+---
+
+The Rowboat web platform uses Docker Compose for simplified deployment and orchestration of all required services.
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+- Docker Engine 20.10+
+- Docker Compose v3.8+
+- At least 4GB RAM available
+- 10GB free disk space
+
+## Quick Start
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/rowboatlabs/rowboat.git
+    cd rowboat
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Copy the example environment file and edit it:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    At minimum, set your OpenAI API key:
+
+    ```bash
+    OPENAI_API_KEY=sk-your-api-key-here
+    ```
+
+    See the [Configuration](/platform/web/configuration) page for all available options.
+  </Step>
+
+  <Step title="Start the services">
+    Launch the core platform:
+
+    ```bash
+    docker-compose up -d
+    ```
+
+    This starts:
+    - Rowboat web application (port 3000)
+    - MongoDB (port 27017)
+    - Redis (port 6379)
+    - Jobs worker (background)
+  </Step>
+
+  <Step title="Access the platform">
+    Open your browser to:
+
+    ```
+    http://localhost:3000
+    ```
+
+    The platform is now ready to use!
+  </Step>
+</Steps>
+
+## Docker Compose Configuration
+
+### Core Services
+
+The default `docker-compose.yml` includes these services:
+
+<CodeGroup>
+```yaml Main Application
+rowboat:
+  build:
+    context: ./apps/rowboat
+    dockerfile: Dockerfile
+  ports:
+    - "${PORT:-3000}:3000"
+  environment:
+    - OPENAI_API_KEY=${OPENAI_API_KEY}
+    - MONGODB_CONNECTION_STRING=mongodb://mongo:27017/rowboat
+    - REDIS_URL=redis://redis:6379
+  restart: unless-stopped
+  volumes:
+    - uploads:/app/uploads
+```
+
+```yaml MongoDB
+mongo:
+  image: mongo:latest
+  ports:
+    - "27017:27017"
+  restart: unless-stopped
+  volumes:
+    - ./data/mongo:/data/db
+```
+
+```yaml Redis
+redis:
+  image: redis:latest
+  ports:
+    - "6379:6379"
+  restart: unless-stopped
+```
+
+```yaml Jobs Worker
+jobs-worker:
+  build:
+    context: ./apps/rowboat
+    dockerfile: scripts.Dockerfile
+  command: ["npm", "run", "jobs-worker"]
+  environment:
+    - OPENAI_API_KEY=${OPENAI_API_KEY}
+    - MONGODB_CONNECTION_STRING=mongodb://mongo:27017/rowboat
+    - REDIS_URL=redis://redis:6379
+  restart: unless-stopped
+```
+</CodeGroup>
+
+### Optional Services
+
+Some services are disabled by default and require profiles to enable.
+
+#### Enable RAG Features
+
+To use RAG with Qdrant vector database:
+
+<Steps>
+  <Step title="Update .env file">
+    ```bash
+    USE_RAG=true
+    QDRANT_URL=http://qdrant:6333
+    QDRANT_API_KEY=your-qdrant-api-key
+    ```
+  </Step>
+
+  <Step title="Start Qdrant service">
+    ```bash
+    docker-compose --profile qdrant up -d
+    ```
+  </Step>
+
+  <Step title="Setup Qdrant collections">
+    ```bash
+    docker-compose --profile setup_qdrant run --rm setup_qdrant
+    ```
+
+    This creates the required vector collections.
+  </Step>
+
+  <Step title="Start RAG worker">
+    ```bash
+    docker-compose --profile rag-worker up -d
+    ```
+
+    This worker processes file uploads and generates embeddings.
+  </Step>
+</Steps>
+
+<Info>
+The RAG worker requires either a local upload directory or S3 credentials. See [Configuration](/platform/web/configuration) for details.
+</Info>
+
+#### Enable Documentation Site
+
+```bash
+docker-compose --profile docs up -d
+```
+
+Access the docs at `http://localhost:8000`
+
+## Data Persistence
+
+The platform uses Docker volumes and bind mounts for data persistence:
+
+| Data Type | Location | Description |
+|-----------|----------|-------------|
+| MongoDB | `./data/mongo` | Database files |
+| Qdrant | `./data/qdrant` | Vector embeddings |
+| Uploads | `./data/uploads` | User-uploaded files |
+
+<Warning>
+Make sure to backup these directories regularly. Deleting them will result in data loss.
+</Warning>
+
+## Production Deployment
+
+For production environments, consider these additional steps:
+
+### 1. Use Environment-Specific Config
+
+Create separate `.env.production` file:
+
+```bash
+NODE_ENV=production
+PORT=3000
+
+# Use strong secrets
+AUTH0_SECRET=$(openssl rand -hex 32)
+CHAT_WIDGET_SESSION_JWT_SECRET=$(openssl rand -hex 32)
+
+# Enable auth
+USE_AUTH=true
+AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+```
+
+### 2. Configure Reverse Proxy
+
+Use Nginx or Traefik for:
+- SSL/TLS termination
+- Load balancing
+- Rate limiting
+- Custom domain routing
+
+Example Nginx config:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name rowboat.yourdomain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### 3. Set Resource Limits
+
+Add resource constraints to `docker-compose.yml`:
+
+```yaml
+rowboat:
+  # ... existing config
+  deploy:
+    resources:
+      limits:
+        cpus: '2'
+        memory: 2G
+      reservations:
+        cpus: '1'
+        memory: 1G
+```
+
+### 4. Enable Monitoring
+
+Add health checks:
+
+```yaml
+rowboat:
+  # ... existing config
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+```
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Pull latest code
+git pull origin main
+
+# Rebuild containers
+docker-compose build --no-cache
+
+# Restart services
+docker-compose up -d
+```
+
+## Troubleshooting
+
+### Service Won't Start
+
+Check logs:
+
+```bash
+docker-compose logs rowboat
+```
+
+### Database Connection Issues
+
+Verify MongoDB is running:
+
+```bash
+docker-compose ps mongo
+docker-compose logs mongo
+```
+
+### Out of Memory
+
+Increase Docker memory limit in Docker Desktop settings or add swap space on Linux.
+
+### Port Already in Use
+
+Change the port in `.env`:
+
+```bash
+PORT=3001
+```
+
+Then restart:
+
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+## Next Steps
+
+<Card title="Configuration" icon="gear" href="/platform/web/configuration">
+  Learn about all available environment variables and feature flags
+</Card>

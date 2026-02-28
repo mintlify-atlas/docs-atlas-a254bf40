@@ -1,0 +1,413 @@
+---
+title: Fireflies Integration
+description: Sync meeting transcripts from Fireflies.ai to Rowboat
+---
+
+Rowboat integrates with [Fireflies.ai](https://fireflies.ai) to automatically sync meeting transcripts and make them searchable by your AI assistant.
+
+## Overview
+
+The Fireflies integration:
+- Syncs meeting transcripts from the last 30 days
+- Downloads full transcripts with speaker attribution
+- Extracts meeting summaries and action items
+- Uses MCP (Model Context Protocol) for API access
+- Runs automatically every 30 minutes
+
+<Info>
+Fireflies.ai is an AI meeting assistant that joins your calls and creates transcripts.
+</Info>
+
+## Prerequisites
+
+<Warning>
+You need a Fireflies.ai account with API access. The integration uses OAuth for authentication.
+</Warning>
+
+## How It Works
+
+### MCP Client Connection
+
+Rowboat uses the Model Context Protocol to connect to Fireflies:
+
+```typescript
+const FIREFLIES_MCP_URL = 'https://api.fireflies.ai/mcp';
+
+class FirefliesClientFactory {
+  private static async createMcpClient(tokens: OAuthTokens): Promise<Client> {
+    const url = new URL(FIREFLIES_MCP_URL);
+    
+    const requestInit: RequestInit = {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+      },
+    };
+    
+    const transport = new StreamableHTTPClientTransport(url, { requestInit });
+    
+    const client = new Client({
+      name: 'rowboatx-fireflies',
+      version: '1.0.0',
+    });
+    
+    await client.connect(transport);
+    return client;
+  }
+}
+```
+
+### Sync Configuration
+
+```typescript
+const SYNC_DIR = path.join(WorkDir, 'fireflies_transcripts');
+const SYNC_INTERVAL_MS = 30 * 60 * 1000; // Every 30 minutes
+const LOOKBACK_DAYS = 30; // Last 30 days
+const API_DELAY_MS = 2000; // 2 seconds between API calls
+const MAX_BATCH_SIZE = 5; // Process max 5 transcripts per sync
+```
+
+<Info>
+The sync interval is longer (30 minutes) to respect Fireflies API rate limits.
+</Info>
+
+## Fetching Transcripts
+
+### List Transcripts
+
+```typescript
+const fromDate = new Date();
+fromDate.setDate(fromDate.getDate() - 30);
+
+const result = await client.callTool({
+  name: 'fireflies_get_transcripts',
+  arguments: {
+    fromDate: fromDate.toISOString().split('T')[0],
+    toDate: new Date().toISOString().split('T')[0],
+    limit: 50,
+    format: 'json',
+  },
+});
+
+const meetings: FirefliesMeeting[] = parseMcpResult(result);
+```
+
+### Get Full Transcript
+
+```typescript
+const transcriptResult = await client.callTool({
+  name: 'fireflies_get_transcript',
+  arguments: {
+    transcriptId: meetingId,
+  },
+});
+
+const sentences: FirefliesTranscriptSentence[] = parseMcpResult(transcriptResult);
+```
+
+## Transcript Format
+
+### Meeting Metadata
+
+```typescript
+interface FirefliesMeeting {
+  id: string;
+  title?: string;
+  dateString?: string;
+  organizerEmail?: string;
+  participants?: string[];
+  meetingAttendees?: Array<{
+    displayName?: string | null;
+    email: string
+  }>;
+  meetingLink?: string;
+  duration?: number;
+  summary?: {
+    short_summary?: string;
+    keywords?: string[];
+    action_items?: string;
+  };
+}
+```
+
+### Transcript Sentences
+
+```typescript
+interface FirefliesTranscriptSentence {
+  text: string;
+  speaker_name?: string;
+  start_time?: number;
+  end_time?: number;
+}
+```
+
+### Output Format
+
+Each meeting is saved as markdown:
+
+```markdown
+# Product Planning Meeting
+
+**Meeting ID:** abc123xyz
+**Date:** Mon Jan 1, 2024, 10:00 AM
+**Organizer:** alice@company.com
+**Participants:** Alice, Bob, Carol
+**Meeting Link:** https://zoom.us/j/123456789
+**Duration:** 45m 32s
+
+---
+
+## Overview
+
+Discussed Q1 product roadmap and feature prioritization.
+
+## Keywords
+
+product roadmap, feature prioritization, Q1 planning
+
+## Action Items
+
+- [ ] Alice: Draft PRD for new feature
+- [ ] Bob: Update timeline estimates
+- [ ] Carol: Schedule design review
+
+## Transcript
+
+### Alice
+[00:00] Thanks everyone for joining. Let's start with the roadmap.
+[00:15] We need to prioritize these three features.
+
+### Bob
+[00:30] I think we should start with the analytics dashboard.
+[00:45] It's the most requested feature from customers.
+
+### Alice
+[01:00] Good point. Carol, what do you think?
+```
+
+## Rate Limiting
+
+Rowboat implements aggressive rate limiting for Fireflies:
+
+```typescript
+const RATE_LIMIT_RETRY_DELAY_MS = 60 * 1000; // Wait 1 minute
+const MAX_RETRIES = 3;
+
+async function callWithRateLimit<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T | null> {
+  let retries = 0;
+  let delay = RATE_LIMIT_RETRY_DELAY_MS;
+  
+  while (retries < MAX_RETRIES) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error.message.includes('429') || 
+          error.message.includes('rate limit')) {
+        retries++;
+        console.log(`Rate limit hit. Retry ${retries}/${MAX_RETRIES} in ${delay/1000}s`);
+        await sleep(delay);
+        delay *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
+  }
+  return null;
+}
+```
+
+### Batch Processing
+
+```typescript
+const MAX_BATCH_SIZE = 5; // Process max 5 transcripts per sync
+let processedInBatch = 0;
+
+for (const meeting of meetings) {
+  if (processedInBatch >= MAX_BATCH_SIZE) {
+    console.log('Reached batch limit, will continue in next sync');
+    break;
+  }
+  
+  // Add delay between API calls
+  if (processedInBatch > 0) {
+    await sleep(2000); // 2 second delay
+  }
+  
+  // Process transcript...
+  processedInBatch++;
+}
+```
+
+<Warning>
+To avoid rate limits, Rowboat processes a maximum of 5 new transcripts per sync cycle.
+</Warning>
+
+## State Tracking
+
+Rowboat tracks which transcripts have been synced:
+
+```typescript
+interface SyncState {
+  lastSyncDate?: string;
+  syncedIds?: string[];
+  lastCheckTime?: string;
+}
+
+const state = loadState();
+const syncedIds = new Set(state.syncedIds || []);
+
+for (const meeting of meetings) {
+  if (syncedIds.has(meeting.id)) {
+    console.log('Skipping already synced:', meeting.id);
+    continue;
+  }
+  
+  // Process and save transcript...
+  syncedIds.add(meeting.id);
+}
+
+saveState(toDate, Array.from(syncedIds));
+```
+
+## OAuth Token Management
+
+Rowboat automatically handles token refresh:
+
+```typescript
+if (oauthClient.isTokenExpired(tokens)) {
+  if (!tokens.refresh_token) {
+    console.log('Token expired and no refresh token available.');
+    await oauthRepo.upsert('fireflies-ai', {
+      error: 'Missing refresh token. Please reconnect.'
+    });
+    return null;
+  }
+  
+  const refreshedTokens = await oauthClient.refreshTokens(
+    config,
+    tokens.refresh_token,
+    tokens.scopes
+  );
+  
+  await oauthRepo.upsert('fireflies-ai', { tokens: refreshedTokens });
+  
+  // Recreate MCP client with new token
+  this.cache.client = await this.createMcpClient(refreshedTokens);
+}
+```
+
+## Activity Logging
+
+Rowboat logs all Fireflies sync activity:
+
+```typescript
+await serviceLogger.log({
+  type: 'changes_identified',
+  service: 'fireflies',
+  runId,
+  level: 'info',
+  message: `Found ${newMeetings.length} new transcripts`,
+  counts: { transcripts: newMeetings.length },
+  items: meetingTitles.slice(0, 5),
+  truncated: meetingTitles.length > 5,
+});
+```
+
+## Trigger Manual Sync
+
+```typescript
+import { triggerSync } from './sync_fireflies';
+
+triggerSync(); // Wakes up sync immediately
+```
+
+## Troubleshooting
+
+### 401 Unauthorized Error
+
+<Warning>
+If authentication fails, Rowboat will clear the OAuth cache:
+</Warning>
+
+```typescript
+if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+  console.log('Auth error, clearing cache');
+  await FirefliesClientFactory.clearCache();
+}
+```
+
+You'll need to reconnect your Fireflies account.
+
+### Rate Limit Errors (429)
+
+If you encounter rate limits:
+- Rowboat will automatically retry with exponential backoff
+- New transcripts are queued for the next sync
+- Max 5 transcripts processed per sync to avoid hitting limits
+
+### Missing Transcripts
+
+<Info>
+Only transcripts from the last 30 days are synced. Older transcripts are not fetched.
+</Info>
+
+To change the lookback period:
+
+```typescript
+const LOOKBACK_DAYS = 30; // Modify this value
+```
+
+### Partial Transcripts
+
+If a transcript fails to download due to rate limiting:
+- The meeting metadata is still saved
+- The transcript will be fetched in the next sync cycle
+
+```typescript
+if (!transcriptResult) {
+  console.log('Skipping transcript due to rate limit:', meetingId);
+  // Meeting is not added to syncedIds, will retry next time
+}
+```
+
+## Files Synced
+
+| Location | Description |
+|----------|-------------|
+| `~/rowboat/fireflies_transcripts/{id}_{title}.md` | Meeting transcripts |
+| `~/rowboat/fireflies_transcripts/sync_state.json` | Sync state tracking |
+
+## Example Use Cases
+
+### Find Action Items
+
+"What action items came out of yesterday's product meeting?"
+
+Rowboat can search the Fireflies transcript and extract action items.
+
+### Meeting Recap
+
+"Summarize the engineering sync from last Tuesday."
+
+Rowboat reads the transcript and Fireflies' AI-generated summary.
+
+### Quote Search
+
+"What did Alice say about the new feature?"
+
+Rowboat searches speaker-attributed transcript sentences.
+
+## Privacy & Security
+
+- **OAuth Authentication**: Secure token-based authentication
+- **Local Storage**: All transcripts stored locally on your machine
+- **No Cloud Sync**: Transcripts never sent to external servers
+- **Automatic Token Refresh**: Tokens refreshed automatically when expired
+
+## Related Integrations
+
+- [Granola](/integrations/granola) - Meeting notes from Granola
+- [Google Calendar](/integrations/google-calendar) - Calendar events
+- [MCP](/integrations/mcp) - Model Context Protocol servers

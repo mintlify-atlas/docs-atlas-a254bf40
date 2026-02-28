@@ -1,0 +1,349 @@
+---
+title: Granola Integration
+description: Sync meeting notes from Granola to Rowboat
+---
+
+Rowboat integrates with [Granola](https://granola.ai) to automatically sync your meeting notes and make them searchable by your AI assistant.
+
+## Overview
+
+The Granola integration:
+- Syncs meeting notes from your Granola workspace
+- Converts ProseMirror format to markdown
+- Tracks document updates automatically
+- Preserves frontmatter metadata
+- Runs every 5 minutes when enabled
+
+<Info>
+Granola is an AI-powered meeting notes app that runs on macOS. It automatically takes notes during meetings.
+</Info>
+
+## How It Works
+
+### Authentication
+
+Rowboat reads your Granola access token from the local config file:
+
+```typescript
+const GRANOLA_CONFIG_PATH = path.join(
+  homedir(),
+  'Library',
+  'Application Support',
+  'Granola',
+  'supabase.json'
+);
+
+interface SupabaseJson {
+  workos_tokens?: string; // JSON string containing WorkosTokens
+}
+
+const content = fs.readFileSync(GRANOLA_CONFIG_PATH, 'utf-8');
+const supabaseJson = JSON.parse(content);
+const tokens = JSON.parse(supabaseJson.workos_tokens);
+const accessToken = tokens.access_token;
+```
+
+<Warning>
+Granola must be installed and authenticated on your Mac for this integration to work.
+</Warning>
+
+### Sync Configuration
+
+```typescript
+const SYNC_DIR = path.join(WorkDir, 'granola_notes');
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // Every 5 minutes
+const API_DELAY_MS = 1000; // 1 second between API calls
+const MAX_BATCH_SIZE = 10; // Max 10 docs per sync
+```
+
+### API Integration
+
+Rowboat uses Granola's v2 API:
+
+```typescript
+const GRANOLA_API_BASE = 'https://api.granola.ai';
+const GRANOLA_CLIENT_VERSION = '6.462.1';
+
+function getHeaders(accessToken: string) {
+  return {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'User-Agent': `Granola/${GRANOLA_CLIENT_VERSION}`,
+    'X-Client-Version': GRANOLA_CLIENT_VERSION,
+  };
+}
+
+const response = await fetch(`${GRANOLA_API_BASE}/v2/get-documents`, {
+  method: 'POST',
+  headers: getHeaders(accessToken),
+  body: JSON.stringify({
+    limit: 10,
+    offset: 0,
+    include_last_viewed_panel: true,
+  }),
+});
+```
+
+## Document Format
+
+### ProseMirror to Markdown Conversion
+
+Granola stores notes in ProseMirror format. Rowboat converts them to markdown:
+
+```typescript
+function convertProseMirrorToMarkdown(content: ProseMirrorNode): string {
+  if (node.type === 'heading') {
+    const level = node.attrs?.level || 1;
+    return `${'#'.repeat(level)} ${text}\n\n`;
+  }
+  
+  if (node.type === 'paragraph') {
+    return `${text}\n\n`;
+  }
+  
+  if (node.type === 'bulletList') {
+    return items.map(item => `- ${item}`).join('\n') + '\n\n';
+  }
+  
+  if (node.type === 'orderedList') {
+    return items.map((item, i) => `${i+1}. ${item}`).join('\n') + '\n\n';
+  }
+}
+```
+
+### Output Format
+
+Each document is saved with frontmatter:
+
+```markdown
+---
+granola_id: abc123
+title: "Team Standup - Jan 1"
+created_at: 2024-01-01T10:00:00Z
+updated_at: 2024-01-01T10:30:00Z
+---
+
+# Team Standup - Jan 1
+
+## Attendees
+- Alice
+- Bob
+
+## Discussion Points
+- Product roadmap review
+- Sprint planning
+
+## Action Items
+- [ ] Update design mockups
+- [ ] Schedule follow-up meeting
+```
+
+## State Tracking
+
+Rowboat tracks which documents have been synced:
+
+```typescript
+interface SyncState {
+  lastSyncDate: string;
+  syncedDocs: Record<string, string>; // { documentId: updated_at }
+}
+
+// Check if document needs sync
+const docUpdatedAt = doc.updated_at || doc.created_at;
+const lastSyncedAt = state.syncedDocs[doc.id];
+const needsSync = !lastSyncedAt || lastSyncedAt !== docUpdatedAt;
+
+if (needsSync) {
+  // Convert and save document
+  state.syncedDocs[doc.id] = docUpdatedAt;
+  saveState(state);
+}
+```
+
+<Info>
+Only documents that are new or have been updated since the last sync are processed.
+</Info>
+
+## Rate Limiting
+
+Rowboat implements rate limiting protection:
+
+```typescript
+async function callWithRateLimit<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T | null> {
+  let retries = 0;
+  let delay = 60000; // 1 minute
+  
+  while (retries < 3) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error.message.includes('429')) {
+        retries++;
+        await sleep(delay);
+        delay *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
+  }
+  return null;
+}
+```
+
+### API Delays
+
+```typescript
+// Add delay between API calls
+if (offset > 0) {
+  await sleep(1000); // 1 second delay
+}
+
+const docsResponse = await getDocuments(accessToken, 10, offset);
+```
+
+## Pagination
+
+Rowboat fetches documents in batches:
+
+```typescript
+let offset = 0;
+let hasMore = true;
+
+while (hasMore) {
+  const docsResponse = await getDocuments(accessToken, MAX_BATCH_SIZE, offset);
+  
+  if (docsResponse.docs.length === 0) {
+    hasMore = false;
+    break;
+  }
+  
+  // Process documents...
+  
+  offset += docsResponse.docs.length;
+  
+  if (docsResponse.docs.length < MAX_BATCH_SIZE) {
+    hasMore = false; // Last page
+  }
+}
+```
+
+## Enabling the Integration
+
+The Granola integration must be explicitly enabled:
+
+```typescript
+// Configuration stored in ~/.rowboat/config/granola.json
+{
+  "enabled": true
+}
+```
+
+```typescript
+const granolaRepo = container.resolve<IGranolaConfigRepo>('granolaConfigRepo');
+const config = await granolaRepo.getConfig();
+
+if (!config.enabled) {
+  console.log('[Granola] Sync disabled in config');
+  return;
+}
+```
+
+## Activity Logging
+
+Rowboat logs all Granola sync activity:
+
+```typescript
+await serviceLogger.log({
+  type: 'changes_identified',
+  service: 'granola',
+  runId,
+  level: 'info',
+  message: `Granola updates: ${totalChanges} changes`,
+  counts: {
+    newNotes: newCount,
+    updatedNotes: updatedCount
+  },
+  items: changedTitles.slice(0, 5), // First 5 titles
+  truncated: changedTitles.length > 5,
+});
+```
+
+## Trigger Manual Sync
+
+```typescript
+import { triggerSync } from './granola/sync';
+
+triggerSync(); // Wakes up sync immediately
+```
+
+## Troubleshooting
+
+### No Access Token Found
+
+<Warning>
+Make sure Granola is installed and you're logged in. The config file should exist at:
+`~/Library/Application Support/Granola/supabase.json`
+</Warning>
+
+### Rate Limit Errors
+
+If you see rate limit errors:
+- Rowboat will automatically retry with exponential backoff
+- Reduce `MAX_BATCH_SIZE` if the problem persists
+- Increase `SYNC_INTERVAL_MS` to sync less frequently
+
+### Missing Documents
+
+<Info>
+Rowboat syncs all documents in your Granola workspace. If documents are missing, check that they're not deleted in Granola.
+</Info>
+
+### ProseMirror Conversion Issues
+
+If notes don't convert correctly:
+- Rowboat tries `last_viewed_panel.content` first (most recent)
+- Falls back to `notes` field (older format)
+- Falls back to `notes_markdown` or `notes_plain` if available
+
+```typescript
+const lastViewedContent = doc.last_viewed_panel?.content;
+if (lastViewedContent?.type === 'doc') {
+  md += convertProseMirrorToMarkdown(lastViewedContent);
+} else if (doc.notes?.type === 'doc') {
+  md += convertProseMirrorToMarkdown(doc.notes);
+} else if (doc.notes_markdown) {
+  md += doc.notes_markdown;
+}
+```
+
+## Files Synced
+
+| Location | Description |
+|----------|-------------|
+| `~/rowboat/granola_notes/{id}_{title}.md` | Meeting notes |
+| `~/rowboat/granola_notes/sync_state.json` | Sync state tracking |
+
+## Configuration File
+
+```json
+{
+  "enabled": true
+}
+```
+
+Location: `~/.rowboat/config/granola.json`
+
+## Privacy & Security
+
+- **Local Token**: Uses token from Granola's local config
+- **Local Storage**: All notes stored locally on your machine
+- **No Cloud Sync**: Notes never sent to external servers
+- **Read-Only**: Only reads notes, never modifies Granola data
+
+## Related Integrations
+
+- [Fireflies](/integrations/fireflies) - Meeting transcripts
+- [Google Calendar](/integrations/google-calendar) - Calendar events with notes

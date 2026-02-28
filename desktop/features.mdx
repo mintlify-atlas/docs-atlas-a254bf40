@@ -1,0 +1,318 @@
+---
+title: Features and Capabilities
+description: Core features of the Rowboat desktop application
+---
+
+Rowboat Desktop provides AI assistance that's grounded in your work context. From drafting emails to generating presentations, every feature is designed to work with memory that compounds over time.
+
+## Core Features
+
+### AI Copilot
+
+Rowboat Copilot is your AI assistant for everyday work. It combines thorough explanations with genuine enthusiasm and helps with:
+
+- **Email drafting** - Respond to emails with full context from past conversations
+- **Meeting prep** - Get briefed on attendees, past decisions, and open questions
+- **Document collaboration** - Create and edit notes in your knowledge graph
+- **Presentation creation** - Generate PDF slide decks from your work context
+- **Project tracking** - Summarize project status using accumulated memory
+
+<Note>
+The Copilot has access to your entire knowledge graph and pulls relevant context automatically. No need to search or provide background - it already knows.
+</Note>
+
+### Knowledge Graph
+
+Your work memory lives in an **Obsidian-compatible vault** stored at `~/.rowboat/knowledge/`.
+
+#### Graph Structure
+
+The knowledge graph is organized into four categories:
+
+<Tabs>
+  <Tab title="People">
+    **People/** - Individual contacts and relationships
+    
+    Each person note tracks:
+    - Role and organization
+    - Past interactions and decisions
+    - Commitments made by both sides
+    - Open questions and concerns
+    - Communication style and preferences
+    
+    Example: `knowledge/People/Sarah Chen.md`
+  </Tab>
+  
+  <Tab title="Organizations">
+    **Organizations/** - Companies and teams
+    
+    Each organization note includes:
+    - Key contacts and stakeholders
+    - Projects and initiatives
+    - Decisions and agreements
+    - Meeting history
+    
+    Example: `knowledge/Organizations/Acme Corp.md`
+  </Tab>
+  
+  <Tab title="Projects">
+    **Projects/** - Ongoing initiatives and workstreams
+    
+    Each project note contains:
+    - Goals and milestones
+    - Team members and owners
+    - Decisions and blockers
+    - Action items and commitments
+    
+    Example: `knowledge/Projects/Q1 Product Launch.md`
+  </Tab>
+  
+  <Tab title="Topics">
+    **Topics/** - Recurring themes and subject areas
+    
+    Each topic note captures:
+    - Related people and projects
+    - Key concepts and decisions
+    - Resources and references
+    
+    Example: `knowledge/Topics/API Architecture.md`
+  </Tab>
+</Tabs>
+
+<Note>
+**Obsidian-style backlinks** connect notes together. For example, a meeting with Sarah Chen will link to `[[Sarah Chen]]` and `[[Acme Corp]]`, creating a web of related context.
+</Note>
+
+#### How the Graph Updates
+
+The knowledge graph updates automatically:
+
+1. **Email sync** - Gmail threads are processed and entities extracted
+2. **Meeting sync** - Transcripts from Google Meet, Granola, or Fireflies are analyzed
+3. **Note creation** - New people, projects, orgs, and topics get dedicated notes
+4. **Context enrichment** - Existing notes are updated with new decisions and commitments
+
+<Steps>
+  <Step title="Sources are synced">
+    Emails and meeting transcripts are saved as markdown in `~/.rowboat/sources/`
+  </Step>
+  
+  <Step title="Graph builder runs">
+    The note creation agent processes new/changed source files in batches
+  </Step>
+  
+  <Step title="Entities extracted">
+    People, organizations, projects, and topics are identified
+  </Step>
+  
+  <Step title="Notes created or updated">
+    New notes are created or existing notes enriched with new context
+  </Step>
+</Steps>
+
+### Note Creation Strictness
+
+Rowboat supports three strictness levels that control how aggressively notes are created from emails. Meetings always create notes at all levels.
+
+<Tabs>
+  <Tab title="High Strictness">
+    **Philosophy:** "Meetings create notes. Emails enrich them."
+    
+    - Emails **never create** new notes (only meetings do)
+    - Emails can only **update existing** notes for people you've met
+    - Exception: Warm intros from known contacts can create notes
+    - Best for: Users with high email volume who want minimal noise
+    
+    **Filters out:**
+    - All consumer services (Amazon, banks, etc.)
+    - Cold sales and recruiting emails
+    - Support representatives
+    - Generic business pitches
+  </Tab>
+  
+  <Tab title="Medium Strictness">
+    **Philosophy:** "Both create notes, but emails require personalized content."
+    
+    - Emails **can create** notes if personalized and business-relevant
+    - Filters out consumer services, mass mail, generic pitches
+    - Warm intros from anyone create notes
+    - Best for: Balanced capture of relevant business contacts
+    
+    **Filters out:**
+    - Consumer services and automated emails
+    - Mass newsletters
+    - Generic cold outreach
+  </Tab>
+  
+  <Tab title="Low Strictness">
+    **Philosophy:** "Capture broadly. Never miss a potentially important contact."
+    
+    - Creates notes for **any identifiable human sender**
+    - Only skips obvious automated emails and newsletters
+    - Best for: Users with low email volume who want comprehensive capture
+    
+    **Minimal filtering** - captures nearly everything
+  </Tab>
+</Tabs>
+
+<Note>
+On first run, Rowboat analyzes your emails and recommends a strictness level based on volume and patterns. You can change this setting anytime in `~/.rowboat/config/note_creation.json`
+</Note>
+
+### Background Agents
+
+Rowboat can spin up **background agents** to handle repeatable work automatically.
+
+**Examples:**
+
+- Draft email replies in the background (grounded in past context)
+- Generate a daily voice note each morning (agenda, priorities, meetings)
+- Create recurring project updates from latest emails/notes
+- Keep your knowledge graph up to date as new information arrives
+
+<Note>
+You control what runs, when it runs, and what gets written to your local Markdown vault. Agent schedules are configured in `~/.rowboat/config/agent_schedule.json`
+</Note>
+
+### Voice Notes
+
+Record voice memos that automatically:
+
+- Transcribe with Deepgram
+- Extract key takeaways and action items
+- Update relevant notes in your knowledge graph
+- Link to people, projects, and topics mentioned
+
+<Note>
+Voice notes require a Deepgram API key. Add it to `~/.rowboat/config/deepgram.json`
+</Note>
+
+### Skills System
+
+Rowboat uses a **skills catalog** to load specialized guidance for different tasks:
+
+- **draft-emails** - Structure for drafting email responses
+- **meeting-prep** - Guidance for creating meeting briefs
+- **create-presentations** - Generate PDF presentations
+- **doc-collab** - Create and edit documents in the knowledge base
+- **slack** - Send messages and interact with Slack
+- **web-search** - Use Brave or Exa for research
+- **mcp-integration** - Discover and execute MCP tools
+
+When you ask Rowboat to perform a task, it loads the appropriate skill first to ensure it follows best practices.
+
+### MCP Tool Support
+
+Rowboat supports the **Model Context Protocol (MCP)** to connect external tools and services.
+
+**Available integrations:**
+
+- Web search (Exa, Brave)
+- Slack (messages, channels, users)
+- Twitter/X (posts, mentions)
+- ElevenLabs (text-to-speech)
+- Linear/Jira (issues, projects)
+- GitHub (repos, PRs, issues)
+- Databases and custom APIs
+
+<Note>
+MCP servers are configured in `~/.rowboat/config/mcp.json`. Use the Settings dialog in the app to add new servers.
+</Note>
+
+## UI Features
+
+### Chat Interface
+
+The main chat interface includes:
+
+- **Message history** - Full conversation context
+- **@mentions** - Reference people, projects, or topics from your graph
+- **File attachments** - Upload documents, images, PDFs for context
+- **Code blocks** - Syntax-highlighted code in responses
+- **Markdown rendering** - Formatted text, lists, and tables
+
+### Settings Dialog
+
+Access all configuration from the settings dialog:
+
+<Tabs>
+  <Tab title="Models">
+    Configure your AI provider and models:
+    - Select provider (OpenAI, Anthropic, Google, Ollama, etc.)
+    - Enter API key (for cloud providers)
+    - Set base URL (for local/custom endpoints)
+    - Choose assistant model
+    - Choose knowledge graph model (can differ from assistant)
+    - Test connection before saving
+  </Tab>
+  
+  <Tab title="MCP Servers">
+    Manage Model Context Protocol servers:
+    - Add new MCP server configurations
+    - Edit existing server settings
+    - View available tools from each server
+  </Tab>
+  
+  <Tab title="Security">
+    Configure allowed shell commands:
+    - Pre-approved commands run without prompts
+    - Add trusted commands to the allowlist
+    - Commands not on the list require user approval
+  </Tab>
+  
+  <Tab title="Appearance">
+    Customize the look and feel:
+    - Light theme
+    - Dark theme
+    - System theme (follows OS preference)
+  </Tab>
+</Tabs>
+
+### Version History
+
+Rowboat automatically tracks changes to your knowledge graph:
+
+- Git-based version control for all notes
+- Automatic commits when notes are created or updated
+- Full history available via standard git commands
+- Stored in `~/.rowboat/.git/`
+
+<Note>
+You can use any git client to view history, compare versions, or roll back changes to your knowledge graph.
+</Note>
+
+## Security Features
+
+### Command Approval Flow
+
+Rowboat has two types of operations:
+
+**Builtin tools (no approval required):**
+- Reading/writing files in `~/.rowboat/`
+- Searching the knowledge graph
+- Parsing documents
+- Managing MCP servers
+
+**Shell commands (approval flow):**
+- Pre-approved commands in `~/.rowboat/config/security.json` run immediately
+- Other commands require one-time user approval
+- Commands that modify files outside `~/.rowboat/` always ask for confirmation
+
+### Data Privacy
+
+- **All data stored locally** - Nothing sent to cloud storage
+- **API keys encrypted** - Provider keys stored securely on disk
+- **No telemetry** - Rowboat doesn't phone home
+- **Inspectable** - All notes and configs are plain text
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure AI Models" icon="sliders" href="/desktop/model-configuration">
+    Set up OpenAI, Anthropic, Google, Ollama, or local models
+  </Card>
+  
+  <Card title="Explore Workspace" icon="folder" href="/desktop/workspace">
+    Understand the ~/.rowboat/ directory structure
+  </Card>
+</CardGroup>

@@ -1,0 +1,149 @@
+---
+title: Preparing for Meetings
+description: Gather context from your knowledge base and calendar to prepare comprehensive meeting briefs
+icon: calendar-check
+---
+
+Rowboat helps you prepare for meetings by automatically gathering context about attendees from your knowledge base and calendar, creating personalized meeting briefs with history, open items, and suggested talking points.
+
+## How It Works
+
+When you ask Rowboat to prep for a meeting, it follows a thorough workflow:
+
+<Steps>
+  <Step title="Identify the meeting">
+    Rowboat scans your synced calendar to find the meeting. You can specify which meeting or ask for your next meeting.
+  </Step>
+  
+  <Step title="Look up attendees">
+    For each attendee, Rowboat searches your knowledge base for:
+    - Person notes with their role, background, and history
+    - Organization notes about their company
+    - Project notes where they're involved
+  </Step>
+  
+  <Step title="Extract relevant context">
+    From your notes, Rowboat pulls:
+    - Previous interactions and their outcomes
+    - Commitments made (by them or to them)
+    - Open action items
+    - Key facts about what they care about
+  </Step>
+  
+  <Step title="Create the brief">
+    A comprehensive meeting brief is generated with:
+    - About section (role, background, focus areas)
+    - Chronological history of interactions
+    - Outstanding action items
+    - Concrete talking points based on your relationship
+  </Step>
+</Steps>
+
+## Example Usage
+
+<CodeGroup>
+```text Simple request
+Prep me for my next meeting
+```
+
+```text Specific meeting
+Prepare for my 2pm with Sarah Chen
+```
+
+```text Multiple meetings
+Prep all my meetings for today
+```
+</CodeGroup>
+
+## What You Get
+
+Rowboat creates a structured brief like this:
+
+```markdown
+📋
+Meeting Brief: Sarah Chen
+2:00 PM today · Horizon Ventures
+
+About Sarah
+Partner at Horizon Ventures. Led investments in WorkOS and Segment. 
+Very focused on unit economics.
+
+Your History
+- Jan 15: Partner meeting — positive reception
+- Jan 12: Sent updated deck with cohort analysis
+- Jan 8: First pitch — she loved the 125% NRR
+
+Open Items
+- Send updated financial model (she asked Jan 15)
+- Discuss term sheet timeline
+
+Suggested Talking Points
+- Address her question about CAC by channel
+- Mention [[TechFlow]] expansion closed ($120K ARR)
+```
+
+<Tip>
+Rowboat uses `[[Name]]` wiki-link syntax to cross-reference related people, projects, and organizations in your knowledge base, making it easy to navigate to additional context.
+</Tip>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Context-driven" icon="brain">
+    Never get generic templates. Every brief is personalized based on your actual relationship history and notes.
+  </Card>
+  
+  <Card title="Automatic lookup" icon="magnifying-glass">
+    Rowboat searches your knowledge base first before creating any brief, ensuring accuracy.
+  </Card>
+  
+  <Card title="Actionable insights" icon="list-check">
+    Get specific talking points and reminders about commitments, not generic meeting tips.
+  </Card>
+  
+  <Card title="Smart filtering" icon="filter">
+    Only preps for meetings with external attendees, skipping internal blocks like Focus Time.
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+### Keep person notes updated
+
+The quality of your meeting briefs depends on your knowledge base. After meetings, update person notes with:
+- What you discussed
+- Commitments made
+- Follow-up items
+- New insights about what they care about
+
+### Specify unclear requests
+
+If you have multiple meetings coming up, Rowboat will ask which one to prep. Be specific to save time:
+- "Prep my investor meeting" (if you only have one)
+- "Prep the Sarah call" (use their name)
+- "Prep my 2pm" (use the time)
+
+### Review before the meeting
+
+Get your brief 15-30 minutes before the meeting starts so you have time to review and prepare additional materials if needed.
+
+## Data Sources
+
+<CardGroup cols={2}>
+  <Card title="Calendar sync" icon="calendar">
+    Rowboat reads your synced calendar events from the `calendar_sync/` folder to identify meetings and extract attendee information.
+  </Card>
+  
+  <Card title="Knowledge base" icon="database">
+    Person, organization, and project notes from your `knowledge/` folder provide the context for creating personalized briefs.
+  </Card>
+</CardGroup>
+
+<Tip>
+If Rowboat finds no notes for an attendee, it will mention this and offer to help create one. This is a great opportunity to capture context before the meeting.
+</Tip>
+
+## Related Features
+
+- [Document Collaboration](/use-cases/document-collaboration) - Work with Rowboat to maintain your knowledge base notes
+- [Email Drafting](/use-cases/email-drafting) - Draft contextual follow-up emails after meetings

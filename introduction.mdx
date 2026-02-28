@@ -1,0 +1,145 @@
+---
+title: Introduction
+description: Open-source AI coworker that turns work into a knowledge graph and acts on it
+---
+
+<img
+  className="block dark:hidden"
+  src="https://github.com/user-attachments/assets/fc463b99-01b3-401c-b4a4-044dad480901"
+  alt="Rowboat Hero"
+/>
+<img
+  className="hidden dark:block"
+  src="https://github.com/user-attachments/assets/fc463b99-01b3-401c-b4a4-044dad480901"
+  alt="Rowboat Hero"
+/>
+
+# Open-source AI coworker with persistent memory
+
+Rowboat connects to your email and meeting notes, builds a long-lived knowledge graph, and uses that context to help you get work done - privately, on your machine.
+
+All your data is stored locally as plain Markdown in an Obsidian-compatible vault. No proprietary formats, no hosted lock-in.
+
+<CardGroup cols={2}>
+  <Card
+    title="Context that compounds"
+    icon="brain"
+  >
+    Most AI tools reconstruct context by searching transcripts. Rowboat maintains long-lived knowledge instead - relationships are explicit, notes accumulate over time, and memory compounds rather than starting cold.
+  </Card>
+  <Card
+    title="Local-first by design"
+    icon="hard-drive"
+  >
+    Everything lives on your machine as plain Markdown. Inspect, edit, back up, or delete your data at any time. Compatible with Obsidian and any text editor.
+  </Card>
+  <Card
+    title="Real artifacts, not just chat"
+    icon="file-code"
+  >
+    Generate meeting briefs, draft emails grounded in history, create PDF slide decks from context, and produce real work artifacts - not just conversational responses.
+  </Card>
+  <Card
+    title="Background agents"
+    icon="robot"
+  >
+    Spin up agents to handle repeatable work automatically: draft email replies, generate daily voice notes, create recurring project updates, and keep your knowledge graph current.
+  </Card>
+</CardGroup>
+
+## What you can do with Rowboat
+
+<CardGroup cols={3}>
+  <Card title="Meeting prep" icon="calendar">
+    Pull past decisions, open questions, and relevant threads into crisp briefs before meetings.
+  </Card>
+  <Card title="Build decks" icon="presentation">
+    Generate PDF slides using context from your knowledge graph.
+  </Card>
+  <Card title="Draft emails" icon="envelope">
+    Write replies grounded in your history and commitments.
+  </Card>
+  <Card title="Voice memos" icon="microphone">
+    Record notes that automatically capture and update key takeaways in the graph.
+  </Card>
+  <Card title="Follow-ups" icon="check-circle">
+    Track decisions, action items, and owners so nothing gets dropped.
+  </Card>
+  <Card title="Query your graph" icon="search">
+    Ask questions about people, projects, and context from your work.
+  </Card>
+</CardGroup>
+
+## How it's different
+
+Rowboat maintains an **Obsidian-compatible vault** of plain Markdown notes with backlinks - a transparent "working memory" you can inspect and edit.
+
+<Note>
+  Your knowledge graph lives in `~/.rowboat/knowledge/` and follows entity-based organization:
+  - **People/** - Contacts with roles, organizations, and interaction history
+  - **Projects/** - Active work with status, decisions, and commitments
+  - **Organizations/** - Companies and teams you work with
+  - **Topics/** - Domain knowledge and recurring themes
+  - **Voice Memos/** - Recorded notes organized by date
+</Note>
+
+The result is memory that accumulates over time, not retrieval that starts cold every session.
+
+## Integrations
+
+Rowboat builds memory from the work you already do:
+
+- **Gmail** - Email threads and communication history
+- **Google Calendar** - Meeting schedules and context
+- **Google Drive** - Document access
+- **Granola** - Meeting notes
+- **Fireflies** - Meeting transcripts
+
+## Bring your own model
+
+Rowboat works with the model setup you prefer:
+
+- **Local models** via Ollama or LM Studio
+- **Hosted models** - OpenAI, Anthropic, Google (bring your own API key)
+- Swap models anytime - your data stays in your local Markdown vault
+
+Configuration lives in `~/.rowboat/config/models.json`.
+
+## Extend with tools (MCP)
+
+Connect to external tools and services via **Model Context Protocol (MCP)**. Plug in search, databases, CRMs, support tools, and automations.
+
+<Info>
+  Examples: Exa (web search), Twitter/X, ElevenLabs (voice), Slack, Linear, Jira, GitHub, and custom internal tools.
+</Info>
+
+## Open source and transparent
+
+Rowboat is built in the open. Inspect the code, contribute features, or fork and customize for your workflow.
+
+<CardGroup cols={2}>
+  <Card
+    title="View on GitHub"
+    icon="github"
+    href="https://github.com/rowboatlabs/rowboat"
+  >
+    Star the repo and follow development
+  </Card>
+  <Card
+    title="Join Discord"
+    icon="discord"
+    href="https://discord.gg/wajrgmJQ6b"
+  >
+    Get help and share feedback with the community
+  </Card>
+</CardGroup>
+
+## Ready to get started?
+
+<Card
+  title="Quickstart Guide"
+  icon="rocket"
+  href="/quickstart"
+>
+  Download Rowboat and connect your first data source in under 5 minutes
+</Card>

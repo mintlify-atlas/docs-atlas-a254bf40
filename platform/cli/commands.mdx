@@ -1,0 +1,770 @@
+---
+title: Command Reference
+description: Complete reference for all rowboatx CLI commands
+---
+
+## Default Command
+
+Run an agent with optional configuration.
+
+```bash
+rowboatx [options]
+```
+
+### Options
+
+<ParamField path="--agent" type="string" default="copilot">
+  The agent to run. Agents are defined in `~/.rowboat/agents/`.
+  
+  **Example:**
+  ```bash
+  rowboatx --agent copilot
+  rowboatx --agent data-processor
+  ```
+</ParamField>
+
+<ParamField path="--run_id" type="string">
+  Continue an existing run. Run IDs are stored in `~/.rowboat/runs/`.
+  
+  **Example:**
+  ```bash
+  rowboatx --run_id a1b2c3d4-5678-90ef-ghij-klmnopqrstuv
+  ```
+</ParamField>
+
+<ParamField path="--input" type="string">
+  Initial input message to send to the agent. Useful for non-interactive execution.
+  
+  **Example:**
+  ```bash
+  rowboatx --input "Analyze the sales data in data.csv"
+  ```
+</ParamField>
+
+<ParamField path="--no-interactive" type="boolean" default="false">
+  Run in non-interactive mode. The agent will not prompt for user input and will exit after processing.
+  
+  **Example:**
+  ```bash
+  rowboatx --agent analyzer --input "Process data" --no-interactive
+  ```
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Interactive Mode
+# Start default copilot agent
+rowboatx
+
+# Run specific agent interactively
+rowboatx --agent my-assistant
+```
+
+```bash Non-Interactive Mode
+# Run with input, exit after completion
+rowboatx --input "What is 2+2?" --no-interactive
+
+# Continue existing run
+rowboatx --run_id abc123 --no-interactive
+```
+
+```bash CI/CD Pipeline
+# Run agent in automated environment
+rowboatx --agent test-runner \
+  --input "Run all integration tests" \
+  --no-interactive
+```
+</CodeGroup>
+
+---
+
+## ui
+
+Launch the interactive terminal-based dashboard for managing runs and agents.
+
+```bash
+rowboatx ui [options]
+```
+
+### Options
+
+<ParamField path="--server-url" type="string">
+  Rowboat server base URL. Connects the UI to a remote or local server instance.
+  
+  **Example:**
+  ```bash
+  rowboatx ui --server-url http://localhost:3000
+  rowboatx ui --server-url https://my-rowboat-server.com
+  ```
+</ParamField>
+
+### Features
+
+The TUI (Terminal User Interface) provides:
+
+- Visual run management and monitoring
+- Agent execution controls
+- Real-time event streaming
+- Interactive permission approvals
+- Run history and logs
+
+### Example
+
+```bash
+# Launch local UI
+rowboatx ui
+
+# Connect to remote server
+rowboatx ui --server-url https://api.rowboat.example.com
+```
+
+---
+
+## import
+
+Import example workflows or custom workflow definitions.
+
+```bash
+rowboatx import --example <name>
+rowboatx import --file <path>
+```
+
+### Options
+
+<ParamField path="--example" type="string">
+  Name of a built-in example workflow to import.
+  
+  **Example:**
+  ```bash
+  rowboatx import --example data-analysis
+  rowboatx import --example github-integration
+  ```
+</ParamField>
+
+<ParamField path="--file" type="string">
+  Path to a custom workflow JSON file to import.
+  
+  **Example:**
+  ```bash
+  rowboatx import --file ./my-workflow.json
+  rowboatx import --file ~/Downloads/shared-workflow.json
+  ```
+</ParamField>
+
+### Workflow Structure
+
+Workflow JSON format:
+
+```json
+{
+  "id": "my-workflow",
+  "entryAgent": "main-agent",
+  "agents": [
+    {
+      "name": "main-agent",
+      "instructions": "You are a helpful assistant.",
+      "tools": {}
+    }
+  ],
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+    }
+  },
+  "instructions": "Optional post-install instructions for the user"
+}
+```
+
+### Import Behavior
+
+<Steps>
+  <Step title="Agent Import">
+    Agents are written to `~/.rowboat/agents/<agent-name>.json`
+  </Step>
+
+  <Step title="MCP Server Merge">
+    MCP servers are merged into `~/.rowboat/config/mcp.json`. Existing servers with the same name are skipped.
+  </Step>
+
+  <Step title="Post-Install Instructions">
+    If the workflow includes instructions, they are displayed after import.
+  </Step>
+</Steps>
+
+### Examples
+
+<CodeGroup>
+```bash Import Built-in Example
+rowboatx import --example data-processor
+# Output:
+# ✓ Imported workflow 'data-processor'
+#   Agents: processor, validator
+#   Primary: processor
+#   MCP servers added: filesystem
+#
+# Run: rowboatx --agent processor
+```
+
+```bash Import Custom Workflow
+rowboatx import --file ~/workflows/custom.json
+# Output:
+# ✓ Imported workflow 'custom'
+#   Agents: custom-agent
+#   Primary: custom-agent
+#
+# Run: rowboatx --agent custom-agent
+```
+</CodeGroup>
+
+---
+
+## list-examples
+
+List all available built-in example workflows.
+
+```bash
+rowboatx list-examples
+```
+
+### Output
+
+```text
+data-analysis
+github-integration
+code-reviewer
+content-generator
+```
+
+### Example
+
+```bash
+# List examples, then import one
+rowboatx list-examples
+rowboatx import --example code-reviewer
+```
+
+---
+
+## export
+
+Export a workflow with all dependencies to stdout. Useful for sharing or backing up workflows.
+
+```bash
+rowboatx export --agent <name>
+```
+
+### Options
+
+<ParamField path="--agent" type="string" required>
+  Entry agent name to export. The export includes the agent and all its dependencies (sub-agents, MCP servers).
+  
+  **Example:**
+  ```bash
+  rowboatx export --agent my-agent
+  rowboatx export --agent copilot > copilot-backup.json
+  ```
+</ParamField>
+
+### Export Behavior
+
+<Steps>
+  <Step title="Dependency Discovery">
+    Recursively discovers all agents referenced by the entry agent through tool dependencies.
+  </Step>
+
+  <Step title="MCP Server Collection">
+    Collects all MCP servers used by the agent and its dependencies.
+  </Step>
+
+  <Step title="JSON Output">
+    Outputs a complete workflow definition to stdout in JSON format.
+  </Step>
+</Steps>
+
+### Examples
+
+<CodeGroup>
+```bash Export to File
+rowboatx export --agent my-workflow > workflow-backup.json
+```
+
+```bash Share Workflow
+# Export and share
+rowboatx export --agent github-bot > github-bot.json
+
+# Import on another machine
+rowboatx import --file github-bot.json
+```
+
+```bash Verify Export
+rowboatx export --agent my-agent | jq .
+# Output:
+# {
+#   "id": "my-agent",
+#   "entryAgent": "my-agent",
+#   "agents": [...],
+#   "mcpServers": {...}
+# }
+```
+</CodeGroup>
+
+---
+
+## model-config
+
+Configure LLM provider and model settings interactively.
+
+```bash
+rowboatx model-config
+```
+
+### Interactive Wizard
+
+<Steps>
+  <Step title="View Current Configuration">
+    Displays current provider and model if configured.
+    
+    ```text
+    Currently using:
+    - provider: my-openai (openai)
+    - model: gpt-5.1
+    ```
+  </Step>
+
+  <Step title="Select Provider Flavor">
+    Choose from available provider types:
+    
+    ```text
+    Select a provider type:
+      1. rowboat [free]
+      2. openai
+      3. aigateway
+      4. anthropic
+      5. google
+      6. ollama
+      7. openai-compatible
+      8. openrouter
+    Enter number or name:
+    ```
+  </Step>
+
+  <Step title="Configure Provider">
+    For existing providers, you can reuse or add new:
+    
+    ```text
+    Found existing providers for openai:
+      1. use existing: my-openai
+      2. add new
+    Enter number or name/alias [2]:
+    ```
+  </Step>
+
+  <Step title="Enter Details">
+    Provide provider-specific configuration:
+    
+    ```text
+    Enter a name/alias for this provider [openai]: production-openai
+    Enter baseURL for openai [https://api.openai.com/v1]:
+    Enter API key for openai (leave blank to pick from environment variable OPENAI_API_KEY):
+    Specify model for openai [gpt-5.1]: gpt-5.1
+    ```
+  </Step>
+
+  <Step title="Confirmation">
+    Configuration is saved and confirmed:
+    
+    ```text
+    Currently using:
+    - provider: production-openai (openai)
+    - model: gpt-5.1
+    
+    Configuration written to ~/.rowboat/config/models.json. You can also edit this file manually
+    ```
+  </Step>
+</Steps>
+
+### Provider Defaults
+
+| Provider | Default Base URL | Default Model | API Key Env Var |
+|----------|------------------|---------------|------------------|
+| openai | `https://api.openai.com/v1` | `gpt-5.1` | `OPENAI_API_KEY` |
+| anthropic | `https://api.anthropic.com/v1` | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
+| google | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-pro` | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| ollama | `http://localhost:11434` | `llama3.1` | - |
+| openai-compatible | `http://localhost:8080/v1` | `openai/gpt-5.1` | - |
+| openrouter | `https://openrouter.ai/api/v1` | `openrouter/auto` | - |
+| aigateway | `https://ai-gateway.vercel.sh/v1/ai` | `gpt-5.1` | `AI_GATEWAY_API_KEY` |
+| rowboat [free] | - | `google/gemini-3-pro-preview` | - |
+
+### Examples
+
+<CodeGroup>
+```bash OpenAI Setup
+rowboatx model-config
+# Select: 2 (openai)
+# Name: my-openai
+# Base URL: [Enter] (use default)
+# API Key: sk-...
+# Model: gpt-5.1
+```
+
+```bash Ollama Setup
+rowboatx model-config
+# Select: 6 (ollama)
+# Name: local-llama
+# Base URL: http://localhost:11434
+# API Key: [Enter] (optional)
+# Model: llama3.1
+```
+
+```bash Multiple Providers
+# Configure production OpenAI
+rowboatx model-config
+# Select: openai
+# Name: prod-openai
+# ...
+
+# Configure staging OpenAI
+rowboatx model-config
+# Select: openai
+# Choose: add new
+# Name: staging-openai
+# ...
+```
+</CodeGroup>
+
+---
+
+## API Server
+
+Rowboat CLI includes a built-in HTTP API server for programmatic access.
+
+### Starting the Server
+
+```bash
+npm run server
+# or from source:
+cd apps/cli && npm run server
+```
+
+**Default port:** 3000 (configure via `PORT` environment variable)
+
+```bash
+PORT=8080 npm run server
+```
+
+### API Endpoints
+
+#### POST /runs/:runId/messages/new
+
+Create a new message in a run.
+
+**Request:**
+```json
+{
+  "message": "What is the status of task #123?"
+}
+```
+
+**Response:**
+```json
+{
+  "messageId": "msg_abc123"
+}
+```
+
+#### POST /runs/:runId/permissions/authorize
+
+Authorize a tool permission request.
+
+**Request:**
+```json
+{
+  "toolCallId": "call_xyz789",
+  "response": "approve"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+#### POST /runs/:runId/human-input-requests/:requestId/reply
+
+Reply to a human input request.
+
+**Request:**
+```json
+{
+  "requestId": "req_def456",
+  "response": "Proceed with deployment"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+#### POST /runs/:runId/stop
+
+Stop a running agent.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+#### GET /stream
+
+Subscribe to run events via Server-Sent Events (SSE).
+
+**Response:** Stream of events
+```text
+data: {"type":"message","runId":"run_123",...}
+event: message
+id: 0
+
+data: {"type":"tool-call","runId":"run_123",...}
+event: message
+id: 1
+```
+
+#### GET /openapi.json
+
+Retrieve OpenAPI specification for the API.
+
+**Response:** OpenAPI 3.0 JSON schema
+
+### API Examples
+
+<CodeGroup>
+```bash cURL - Send Message
+curl -X POST http://localhost:3000/runs/run_abc123/messages/new \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Continue processing"}'
+```
+
+```javascript Node.js - Stream Events
+const EventSource = require('eventsource');
+
+const es = new EventSource('http://localhost:3000/stream');
+
+es.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data);
+};
+
+es.onerror = (error) => {
+  console.error('Stream error:', error);
+};
+```
+
+```python Python - Authorize Permission
+import requests
+
+response = requests.post(
+    'http://localhost:3000/runs/run_123/permissions/authorize',
+    json={
+        'toolCallId': 'call_xyz',
+        'response': 'approve'
+    }
+)
+
+print(response.json())
+# {'success': True}
+```
+</CodeGroup>
+
+---
+
+## Environment Variables
+
+<ParamField path="PORT" type="number" default="3000">
+  Server port for the API server.
+  
+  ```bash
+  PORT=8080 npm run server
+  ```
+</ParamField>
+
+<ParamField path="OPENAI_API_KEY" type="string">
+  OpenAI API key. Used when not explicitly configured in `models.json`.
+  
+  ```bash
+  export OPENAI_API_KEY="sk-..."
+  ```
+</ParamField>
+
+<ParamField path="ANTHROPIC_API_KEY" type="string">
+  Anthropic API key.
+  
+  ```bash
+  export ANTHROPIC_API_KEY="sk-ant-..."
+  ```
+</ParamField>
+
+<ParamField path="GOOGLE_GENERATIVE_AI_API_KEY" type="string">
+  Google AI API key.
+  
+  ```bash
+  export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
+  ```
+</ParamField>
+
+<ParamField path="AI_GATEWAY_API_KEY" type="string">
+  Vercel AI Gateway API key.
+  
+  ```bash
+  export AI_GATEWAY_API_KEY="key_..."
+  ```
+</ParamField>
+
+---
+
+## Configuration Files
+
+### models.json
+
+Location: `~/.rowboat/config/models.json`
+
+```json
+{
+  "providers": {
+    "my-openai": {
+      "flavor": "openai",
+      "apiKey": "sk-...",
+      "baseURL": "https://api.openai.com/v1",
+      "headers": {}
+    },
+    "local-ollama": {
+      "flavor": "ollama",
+      "baseURL": "http://localhost:11434",
+      "headers": {
+        "Authorization": "Bearer optional-key"
+      }
+    }
+  },
+  "defaults": {
+    "provider": "my-openai",
+    "model": "gpt-5.1"
+  }
+}
+```
+
+### mcp.json
+
+Location: `~/.rowboat/config/mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
+      "env": {}
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "BSA..."
+      }
+    }
+  }
+}
+```
+
+### Agent Definition
+
+Location: `~/.rowboat/agents/<name>.json`
+
+```json
+{
+  "name": "my-agent",
+  "instructions": "You are a helpful coding assistant.",
+  "tools": {
+    "filesystem": {
+      "type": "mcp",
+      "mcpServerName": "filesystem",
+      "toolNames": ["read_file", "write_file", "list_directory"]
+    },
+    "sub-agent": {
+      "type": "agent",
+      "name": "code-reviewer"
+    }
+  }
+}
+```
+
+---
+
+## Tips & Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use --no-interactive for automation">
+    When running agents in CI/CD pipelines or scripts, always use `--no-interactive` to prevent hanging on prompts:
+    
+    ```bash
+    rowboatx --agent test-runner --input "Run tests" --no-interactive
+    ```
+  </Accordion>
+
+  <Accordion title="Export workflows before sharing">
+    Use `export` to create portable workflow definitions:
+    
+    ```bash
+    rowboatx export --agent my-workflow > workflow.json
+    # Share workflow.json with team
+    ```
+  </Accordion>
+
+  <Accordion title="Organize agents by purpose">
+    Create separate agents for different tasks:
+    - `copilot` - General assistance
+    - `code-reviewer` - Code review tasks
+    - `data-processor` - Data ETL workflows
+  </Accordion>
+
+  <Accordion title="Version control your configurations">
+    Keep `~/.rowboat/agents/` and `~/.rowboat/config/` in version control (excluding API keys):
+    
+    ```bash
+    cd ~/.rowboat
+    git init
+    echo "config/models.json" >> .gitignore
+    git add agents/ config/mcp.json
+    git commit -m "Add agent configurations"
+    ```
+  </Accordion>
+
+  <Accordion title="Use environment variables for API keys">
+    Avoid hardcoding API keys. Use environment variables:
+    
+    ```bash
+    # .env file
+    OPENAI_API_KEY=sk-...
+    ANTHROPIC_API_KEY=sk-ant-...
+    
+    # Load and run
+    source .env
+    rowboatx
+    ```
+  </Accordion>
+</AccordionGroup>

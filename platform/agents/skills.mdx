@@ -1,0 +1,506 @@
+---
+title: Skill System
+description: Specialized guidance modules for agent capabilities and domain-specific tasks
+---
+
+Skills provide specialized instructions and workflows for specific tasks. Agents can load skills on-demand to access domain-specific knowledge without bloating their base instructions.
+
+## Overview
+
+Skills are Markdown documents containing:
+
+- **Instructions** - How to perform specific tasks
+- **Tool catalogs** - Available tools and their usage
+- **Workflows** - Step-by-step procedures
+- **Best practices** - Patterns and anti-patterns
+- **Examples** - Code snippets and configurations
+
+<Info>
+**Skill Catalog**: `apps/x/packages/core/src/application/assistant/skills/index.ts:1`
+
+All available skills are registered in the catalog with IDs, titles, summaries, and content.
+</Info>
+
+## Available Skills
+
+### Web Search
+
+**ID**: `web-search`  
+**Use for**: Searching the web or researching topics
+
+<Accordion title="Capabilities">
+- Choosing between `web-search` (Brave) and `research-search` (Exa)
+- Understanding when to use each search tool
+- Guidelines on search frequency and quality
+- Category filtering for research-search
+
+**Key guidance:**
+- Always start with exactly ONE search call
+- Never call multiple search tools simultaneously
+- Only make follow-up searches if truly necessary
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/web-search/skill.ts:1`
+
+### Slack Integration
+
+**ID**: `slack`  
+**Use for**: Sending messages, viewing channels, searching conversations
+
+<Accordion title="Capabilities">
+- Checking Slack connection status
+- Listing users, channels, and DM conversations
+- Getting conversation history
+- Searching messages with Slack syntax
+- Sending messages to channels and DMs
+- Executing Slack actions via Composio
+- Complete tool catalog for all Slack operations
+
+**Key guidance:**
+- Always check connection before using Slack tools
+- Show drafts before sending messages
+- Summarize channel history, don't dump raw data
+- Cross-reference with knowledge base
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/slack/skill.ts:1`
+
+### Background Agents
+
+**ID**: `background-agents`  
+**Use for**: Creating, editing, and scheduling background agents
+
+<Accordion title="Capabilities">
+- Agent file format (Markdown with YAML frontmatter)
+- Schedule configuration (cron, window, once)
+- Multi-agent workflow patterns
+- Tool type schemas (builtin, mcp, agent)
+- Schedule state management
+- Validation and best practices
+
+**Key guidance:**
+- All agents are Markdown files in `agents/` directory
+- "Workflows" are just agents that orchestrate other agents
+- Schedule configuration goes in `agent-schedule.json`
+- Never modify `agent-schedule-state.json` manually
+- Avoid `executeCommand` for background agents
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/background-agents/skill.ts:1`
+
+### Builtin Tools Reference
+
+**ID**: `builtin-tools`  
+**Use for**: Understanding and using builtin tools in agents
+
+<Accordion title="Capabilities">
+- Complete `executeCommand` documentation
+- What can be done with shell commands
+- Agent-to-agent calling patterns
+- Copilot-specific builtin tools
+- File and directory operations
+- MCP operations (addMcpServer, listMcpTools, executeMcpTool)
+- When to use builtin vs MCP vs agent tools
+
+**Key guidance:**
+- `executeCommand` is the most powerful builtin tool
+- Commands are filtered through `security.json`
+- Agents can call other agents as tools
+- Copilot has access to workspace and MCP operations
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/builtin-tools/skill.ts:1`
+
+### MCP Integration
+
+**ID**: `mcp-integration`  
+**Use for**: Discovering and executing MCP tools
+
+<Accordion title="Capabilities">
+- Always check MCP tools first before declining tasks
+- MCP server configuration schemas (stdio vs http)
+- Using `addMcpServer` tool with validation
+- Discovering available servers and tools
+- Executing MCP tools directly (copilot)
+- Schema matching for tool execution
+- Adding MCP tools to agents
+
+**Key guidance:**
+- ALWAYS check `listMcpServers` before saying "I can't do that"
+- Use `addMcpServer` tool, never manually edit `mcp.json`
+- Carefully examine `inputSchema` before executing tools
+- Common servers: firecrawl, filesystem, github, fetch, time
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/mcp-integration/skill.ts:1`
+
+### Document Collaboration
+
+**ID**: `doc-collab`  
+**Use for**: Creating, editing, and refining documents
+
+Collaborate on documents in the knowledge base - create notes, edit content, and refine documentation.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/doc-collab/skill.ts`
+
+### Draft Emails
+
+**ID**: `draft-emails`  
+**Use for**: Processing emails and creating responses
+
+Process incoming emails and create draft responses using calendar and knowledge base context.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/draft-emails/skill.ts`
+
+### Meeting Prep
+
+**ID**: `meeting-prep`  
+**Use for**: Preparing for meetings
+
+Gather context about meeting attendees from the knowledge base and prepare briefing documents.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/meeting-prep/skill.ts`
+
+### Organize Files
+
+**ID**: `organize-files`  
+**Use for**: Finding and organizing files
+
+Find, organize, and tidy up files on the user's machine. Move files to folders, clean up Desktop/Downloads, locate specific files.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/organize-files/skill.ts`
+
+### Create Presentations
+
+**ID**: `create-presentations`  
+**Use for**: Creating PDF presentations and slide decks
+
+Create PDF presentations and slide decks from natural language requests using knowledge base context.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/create-presentations/skill.ts`
+
+### Deletion Guardrails
+
+**ID**: `deletion-guardrails`  
+**Use for**: Following safe deletion procedures
+
+Follow the confirmation process before removing workflows, agents, and their dependencies.
+
+Location: `apps/x/packages/core/src/application/assistant/skills/deletion-guardrails/skill.ts`
+
+## Skill Loading
+
+### Resolve Skill
+
+Skills are resolved by ID or file path:
+
+```typescript
+import { resolveSkill } from "@x/core/skills";
+
+// By ID
+const skill = resolveSkill("web-search");
+
+// By path (many variants supported)
+const skill = resolveSkill("skills/web-search/skill.ts");
+const skill = resolveSkill("src/application/assistant/skills/web-search/skill.ts");
+```
+
+<Accordion title="Supported Path Formats">
+The resolver accepts many path variants:
+
+- `web-search`
+- `web-search/skill`
+- `web-search/skill.ts`
+- `web-search/skill.js`
+- `skills/web-search/skill.ts`
+- `src/application/assistant/skills/web-search/skill.ts`
+- Absolute paths (resolved from CURRENT_DIR)
+
+Both `.ts` and `.js` extensions are accepted.
+</Accordion>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:180`
+
+### Skill Catalog
+
+Get a formatted list of all skills:
+
+```typescript
+import { skillCatalog } from "@x/core/skills";
+
+console.log(skillCatalog);
+```
+
+Output:
+```markdown
+# Rowboat Skill Catalog
+
+Use this catalog to see which specialized skills you can load.
+
+## Create Presentations
+- **Skill file:** `src/application/assistant/skills/create-presentations/skill.ts`
+- **Use it for:** Create PDF presentations and slide decks from natural language requests
+
+## Document Collaboration
+- **Skill file:** `src/application/assistant/skills/doc-collab/skill.ts`
+- **Use it for:** Collaborate on documents - create, edit, and refine notes
+
+...
+```
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:111`
+
+## Using Skills in Agents
+
+### Copilot loadSkill Tool
+
+The copilot can load skills dynamically using the `loadSkill` builtin tool:
+
+```yaml
+tools:
+  loadSkill:
+    type: builtin
+    name: loadSkill
+```
+
+**Usage:**
+```typescript
+// Load skill by ID
+await loadSkill({ identifier: "web-search" });
+
+// Load skill by path
+await loadSkill({ 
+  identifier: "src/application/assistant/skills/web-search/skill.ts" 
+});
+```
+
+The skill content is injected into the conversation context, providing specialized guidance for the current task.
+
+### When to Load Skills
+
+Load skills proactively when:
+
+- User asks for a task matching a skill's domain
+- You need specialized knowledge for a complex operation
+- User mentions specific tools or services (Slack, MCP, etc.)
+- Creating or modifying agents with specific tool types
+- Debugging or troubleshooting domain-specific issues
+
+<CodeGroup>
+```typescript Web Search Example
+// User: "Search the web for latest AI news"
+
+// 1. Load web-search skill
+await loadSkill({ identifier: "web-search" });
+
+// 2. Follow skill guidance to choose tool
+// Skill says: Use web-search (Brave) for current events
+
+// 3. Execute tool
+await webSearch({ query: "latest AI news" });
+```
+
+```typescript MCP Integration Example
+// User: "Can you search the web?"
+
+// 1. Load mcp-integration skill
+await loadSkill({ identifier: "mcp-integration" });
+
+// 2. Follow skill guidance to check MCP tools
+await listMcpServers();
+await listMcpTools({ serverName: "firecrawl" });
+
+// 3. Execute MCP tool
+await executeMcpTool({
+  serverName: "firecrawl",
+  toolName: "firecrawl_search",
+  arguments: { query: "latest AI news" }
+});
+```
+
+```typescript Background Agent Example
+// User: "Create a daily email digest agent"
+
+// 1. Load background-agents skill
+await loadSkill({ identifier: "background-agents" });
+
+// 2. Follow skill guidance for agent structure
+// - Create task-specific agents
+// - Create orchestrator agent
+// - Schedule in agent-schedule.json
+
+// 3. Create agent files with proper format
+await workspaceWriteFile({
+  path: "agents/email_reader.md",
+  content: "---\nmodel: gpt-5.1\n..."
+});
+```
+</CodeGroup>
+
+## Skill Architecture
+
+### Skill Definition
+
+```typescript
+type SkillDefinition = {
+  id: string;              // Skill identifier
+  title: string;           // Display name
+  summary: string;         // Short description
+  content: string;         // Full Markdown content
+};
+```
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:18`
+
+### Resolved Skill
+
+```typescript
+type ResolvedSkill = {
+  id: string;              // Skill identifier
+  catalogPath: string;     // Path in catalog
+  content: string;         // Full Markdown content
+};
+```
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:25`
+
+### Skill Registration
+
+Skills are registered in the catalog with multiple path aliases:
+
+```typescript
+const definitions: SkillDefinition[] = [
+  {
+    id: "web-search",
+    title: "Web Search",
+    summary: "Searching the web or researching topics",
+    content: webSearchSkill
+  },
+  // ... more skills
+];
+
+// Register with multiple aliases
+for (const entry of skillEntries) {
+  const aliases = [
+    entry.id,
+    `${entry.id}/skill`,
+    `${entry.id}/skill.ts`,
+    `skills/${entry.id}/skill.ts`,
+    `src/application/assistant/skills/${entry.id}/skill.ts`,
+    absolutePath
+  ];
+  
+  for (const alias of aliases) {
+    registerAliasVariants(alias, resolvedEntry);
+  }
+}
+```
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:31`
+
+## Creating Custom Skills
+
+To add a new skill:
+
+1. **Create skill file** - `apps/x/packages/core/src/application/assistant/skills/my-skill/skill.ts`
+
+```typescript
+export const skill = String.raw`
+# My Skill
+
+Description of what this skill provides.
+
+## When to Use
+
+Load this skill when...
+
+## Available Tools
+
+### tool-name
+Description and usage...
+
+## Workflows
+
+Step-by-step procedures...
+
+## Best Practices
+
+Patterns and anti-patterns...
+
+## Examples
+
+Code snippets and configurations...
+`;
+
+export default skill;
+```
+
+2. **Import in index** - `apps/x/packages/core/src/application/assistant/skills/index.ts`
+
+```typescript
+import mySkill from "./my-skill/skill.js";
+
+const definitions: SkillDefinition[] = [
+  // ... existing skills
+  {
+    id: "my-skill",
+    title: "My Skill",
+    summary: "Short description of my skill",
+    content: mySkill
+  }
+];
+```
+
+3. **Use in agents** - Load dynamically or include in instructions
+
+```typescript
+await loadSkill({ identifier: "my-skill" });
+```
+
+## Best Practices
+
+<Accordion title="Skill Design">
+**Focus on specific domains** - Each skill should cover one area deeply
+
+**Provide concrete examples** - Show exact code, commands, and configurations
+
+**Include workflows** - Step-by-step procedures for common tasks
+
+**Document edge cases** - Cover error handling and troubleshooting
+
+**Keep updated** - Maintain skills as tools and APIs evolve
+</Accordion>
+
+<Accordion title="Skill Usage">
+**Load proactively** - Don't wait for the agent to get stuck
+
+**Load multiple skills** - Complex tasks may need several skills
+
+**Follow skill guidance** - Skills provide tested patterns
+
+**Update context** - Reload skills if requirements change
+</Accordion>
+
+<Accordion title="Skill Organization">
+**Modular structure** - Keep skills focused and composable
+
+**Clear naming** - Use descriptive IDs and titles
+
+**Comprehensive summaries** - Help agents choose the right skill
+
+**Version considerations** - Note compatibility and dependencies
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Overview" icon="robot" href="/platform/agents/overview">
+    Learn about agent system architecture
+  </Card>
+  <Card title="Runtime" icon="microchip" href="/platform/agents/runtime">
+    Explore agent execution details
+  </Card>
+  <Card title="Background Agents" icon="clock" href="/platform/agents/background-agents">
+    Understand scheduled execution
+  </Card>
+</CardGroup>

@@ -1,0 +1,429 @@
+---
+title: Installation
+description: Detailed installation instructions for macOS, Windows, and Linux
+---
+
+# Installing Rowboat
+
+Rowboat is available as a native desktop application for macOS, Windows, and Linux.
+
+## Download
+
+<CardGroup cols={3}>
+  <Card title="macOS" icon="apple">
+    `.dmg` installer
+    
+    Requires macOS 10.15 or later
+  </Card>
+  <Card title="Windows" icon="windows">
+    `.exe` installer
+    
+    Requires Windows 10 or later
+  </Card>
+  <Card title="Linux" icon="linux">
+    AppImage or `.deb`
+    
+    Tested on Ubuntu 20.04+
+  </Card>
+</CardGroup>
+
+**Download latest release:** [rowboatlabs.com/downloads](https://www.rowboatlabs.com/downloads)
+
+**All release files:** [github.com/rowboatlabs/rowboat/releases/latest](https://github.com/rowboatlabs/rowboat/releases/latest)
+
+## Platform-specific installation
+
+<Tabs>
+  <Tab title="macOS">
+    ### Install from DMG
+
+    1. Download the `.dmg` file for macOS
+    2. Open the downloaded file
+    3. Drag **Rowboat** to your **Applications** folder
+    4. Launch Rowboat from Applications
+
+    <Warning>
+      On first launch, macOS may show "Rowboat is from an unidentified developer."
+      
+      **To allow:** Right-click Rowboat → Open → Click "Open" in the dialog
+    </Warning>
+
+    ### Data location
+
+    Rowboat stores all data in:
+    ```
+    ~/.rowboat/
+      knowledge/        # Your knowledge graph (Markdown)
+      config/           # Model and integration configs
+      gmail_sync/       # Synced email data
+      google_calendar/  # Calendar events
+      logs/             # Application logs
+    ```
+
+    ### Uninstall
+
+    1. Quit Rowboat
+    2. Move Rowboat.app to Trash from Applications
+    3. (Optional) Delete `~/.rowboat/` to remove all data
+
+  </Tab>
+  <Tab title="Windows">
+    ### Install from EXE
+
+    1. Download the `.exe` installer for Windows
+    2. Run the installer
+    3. Follow the installation wizard
+    4. Launch Rowboat from Start Menu or Desktop shortcut
+
+    ### Data location
+
+    Rowboat stores all data in:
+    ```
+    C:\Users\<YourUsername>\.rowboat\
+      knowledge\        # Your knowledge graph (Markdown)
+      config\           # Model and integration configs
+      gmail_sync\       # Synced email data
+      google_calendar\  # Calendar events
+      logs\             # Application logs
+    ```
+
+    ### Uninstall
+
+    1. Close Rowboat
+    2. Go to Settings → Apps → Installed apps
+    3. Find Rowboat and click Uninstall
+    4. (Optional) Delete `C:\Users\<YourUsername>\.rowboat\` to remove all data
+
+  </Tab>
+  <Tab title="Linux">
+    ### AppImage (recommended)
+
+    1. Download the `.AppImage` file
+    2. Make it executable:
+       ```bash
+       chmod +x Rowboat-*.AppImage
+       ```
+    3. Run the AppImage:
+       ```bash
+       ./Rowboat-*.AppImage
+       ```
+
+    ### Debian package (.deb)
+
+    For Ubuntu/Debian-based distributions:
+
+    ```bash
+    sudo dpkg -i rowboat_*.deb
+    sudo apt-get install -f  # Install dependencies if needed
+    ```
+
+    Launch from applications menu or run `rowboat` in terminal.
+
+    ### Data location
+
+    Rowboat stores all data in:
+    ```
+    ~/.rowboat/
+      knowledge/        # Your knowledge graph (Markdown)
+      config/           # Model and integration configs
+      gmail_sync/       # Synced email data
+      google_calendar/  # Calendar events
+      logs/             # Application logs
+    ```
+
+    ### Uninstall
+
+    **AppImage:** Delete the `.AppImage` file and optionally `~/.rowboat/`
+
+    **Debian package:**
+    ```bash
+    sudo apt-get remove rowboat
+    ```
+
+  </Tab>
+</Tabs>
+
+## Google setup
+
+Rowboat requires a Google OAuth Client ID to connect Gmail, Calendar, and Drive.
+
+<Steps>
+  <Step title="Create Google Cloud project">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com/projectcreate)
+    2. Click **Create Project**
+    3. Enter a project name (e.g., "Rowboat Integration")
+    4. Click **Create**
+    5. Select the new project from the dropdown
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/01-select-project-dropdown.png" alt="Select project" />
+  </Step>
+
+  <Step title="Enable required APIs">
+    Enable these three APIs:
+
+    1. [Gmail API](https://console.cloud.google.com/apis/api/gmail.googleapis.com) - Click **Enable**
+    2. [Google Calendar API](https://console.cloud.google.com/apis/api/calendar-json.googleapis.com) - Click **Enable**
+    3. [Google Drive API](https://console.cloud.google.com/apis/api/drive.googleapis.com) - Click **Enable**
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/02-enable-api.png" alt="Enable API" />
+  </Step>
+
+  <Step title="Configure OAuth consent screen">
+    1. Go to [OAuth consent screen](https://console.cloud.google.com/auth/branding)
+    2. Choose **External** as audience type
+    3. Fill in:
+       - **App name:** Rowboat (or your preferred name)
+       - **User support email:** Your email address
+       - **Contact email:** Your email address
+    4. Click **Save and Continue** through all steps
+
+    <Note>
+      You do NOT need to publish the app. Keeping it in **Testing** mode is completely fine for personal use.
+    </Note>
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/03-oauth-consent-screen.png" alt="OAuth consent screen" />
+  </Step>
+
+  <Step title="Add test users">
+    Since your app is in Testing mode, you must manually add authorized users.
+
+    1. Go to [Test users](https://console.cloud.google.com/auth/audience)
+    2. Click **Add Users**
+    3. Enter the email address you'll connect with Rowboat
+    4. Click **Save**
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/04-add-test-users.png" alt="Add test users" />
+  </Step>
+
+  <Step title="Create OAuth Client ID">
+    1. Go to [Credentials](https://console.cloud.google.com/auth/clients)
+    2. Click **Create Credentials → OAuth Client ID**
+    3. For **Application type**, select:
+       
+       **Universal Windows Platform (UWP)**
+
+    4. Enter:
+       - **Name:** Rowboat Desktop (or any name)
+       - **Store ID:** test (or any value)
+    5. Click **Create**
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/05-create-oauth-client-uwp.png" alt="Create UWP client" />
+  </Step>
+
+  <Step title="Copy the Client ID">
+    After creation, Google shows your credentials:
+
+    - **Client ID** - Copy this
+    - **Client Secret** - Not needed
+
+    Paste the **Client ID** into Rowboat when prompted during setup.
+
+    <img src="https://raw.githubusercontent.com/rowboatlabs/rowboat/main/apps/docs/docs/img/google-setup/06-copy-client-id.png" alt="Copy Client ID" />
+  </Step>
+</Steps>
+
+<Warning>
+  **Why UWP client type?**
+  
+  Rowboat is a desktop application that needs to use the OAuth flow without a custom redirect URI. The UWP client type allows this while maintaining security.
+</Warning>
+
+## Optional features
+
+### Voice notes
+
+To enable voice note transcription with Deepgram:
+
+1. Sign up at [deepgram.com](https://deepgram.com)
+2. Get an API key from your Deepgram console
+3. Create config file:
+   ```bash
+   # macOS/Linux
+   mkdir -p ~/.rowboat/config
+   echo '{"apiKey": "YOUR_KEY_HERE"}' > ~/.rowboat/config/deepgram.json
+   ```
+
+   ```powershell
+   # Windows
+   New-Item -Path "$env:USERPROFILE\.rowboat\config" -ItemType Directory -Force
+   '{"apiKey": "YOUR_KEY_HERE"}' | Out-File -FilePath "$env:USERPROFILE\.rowboat\config\deepgram.json"
+   ```
+
+<Info>
+  Voice memos are saved to `~/.rowboat/knowledge/Voice Memos/<date>/` as Markdown files with automatic transcription.
+</Info>
+
+### Web search with Brave
+
+To enable web search capabilities:
+
+1. Get a Brave Search API key from [brave.com/search/api](https://brave.com/search/api)
+2. Create config file:
+   ```bash
+   # macOS/Linux
+   echo '{"apiKey": "YOUR_BRAVE_KEY"}' > ~/.rowboat/config/brave-search.json
+   ```
+
+   ```powershell
+   # Windows  
+   '{"apiKey": "YOUR_BRAVE_KEY"}' | Out-File -FilePath "$env:USERPROFILE\.rowboat\config\brave-search.json"
+   ```
+
+### Research search with Exa
+
+For enhanced research capabilities:
+
+1. Get an Exa API key from [exa.ai](https://exa.ai)
+2. Create config file:
+   ```bash
+   # macOS/Linux
+   echo '{"apiKey": "YOUR_EXA_KEY"}' > ~/.rowboat/config/exa-search.json
+   ```
+
+   ```powershell
+   # Windows
+   '{"apiKey": "YOUR_EXA_KEY"}' | Out-File -FilePath "$env:USERPROFILE\.rowboat\config\exa-search.json"
+   ```
+
+## Model configuration
+
+Rowboat stores model config in `~/.rowboat/config/models.json`.
+
+### Example configurations
+
+<CodeGroup>
+```json OpenAI
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-..."
+  },
+  "model": "gpt-4o"
+}
+```
+
+```json Anthropic
+{
+  "provider": {
+    "flavor": "anthropic",
+    "apiKey": "sk-ant-..."
+  },
+  "model": "claude-3-5-sonnet-20241022"
+}
+```
+
+```json Ollama (local)
+{
+  "provider": {
+    "flavor": "ollama",
+    "baseURL": "http://localhost:11434"
+  },
+  "model": "llama3.1"
+}
+```
+
+```json OpenRouter
+{
+  "provider": {
+    "flavor": "openrouter",
+    "apiKey": "sk-or-...",
+    "baseURL": "https://openrouter.ai/api/v1"
+  },
+  "model": "anthropic/claude-3.5-sonnet"
+}
+```
+</CodeGroup>
+
+<Note>
+  You can change models at any time through the Rowboat settings UI or by editing the config file directly.
+</Note>
+
+## Verification
+
+After installation, verify everything works:
+
+1. **Check data directory exists:**
+   ```bash
+   # macOS/Linux
+   ls -la ~/.rowboat/
+   
+   # Windows
+   dir %USERPROFILE%\.rowboat\
+   ```
+
+2. **Verify knowledge folder was created:**
+   ```bash
+   # macOS/Linux
+   ls ~/.rowboat/knowledge/
+   
+   # Windows
+   dir %USERPROFILE%\.rowboat\knowledge\
+   ```
+
+   You should see:
+   - `Welcome.md`
+   - `People/`
+   - `Projects/`
+   - `Organizations/`
+   - `Topics/`
+
+3. **Check logs for errors:**
+   ```bash
+   # macOS/Linux
+   tail -f ~/.rowboat/logs/main.log
+   ```
+
+## Troubleshooting
+
+### App won't launch
+
+**macOS:**
+- Right-click → Open (don't double-click first time)
+- Check Security & Privacy settings if blocked
+
+**Windows:**
+- Run as Administrator if permissions error
+- Check Windows Defender hasn't quarantined the app
+
+**Linux:**
+- Ensure AppImage is executable: `chmod +x Rowboat-*.AppImage`
+- Install required dependencies: `sudo apt-get install libfuse2`
+
+### Google OAuth fails
+
+- Verify you added yourself as a test user
+- Check that all three APIs (Gmail, Calendar, Drive) are enabled
+- Ensure you created a **UWP** client type, not "Desktop app"
+- Try revoking access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) and re-authorizing
+
+### Knowledge graph not building
+
+- Check that Gmail sync completed (look in `~/.rowboat/gmail_sync/`)
+- Verify model configuration is valid in `~/.rowboat/config/models.json`
+- Review logs in `~/.rowboat/logs/` for errors
+- The graph builder runs every 30 seconds - give it a few minutes after first sync
+
+### Voice memos not transcribing
+
+- Verify Deepgram API key is correct in `~/.rowboat/config/deepgram.json`
+- Check you have recording permissions enabled for Rowboat
+- Review logs for transcription errors
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart guide"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Connect Google and make your first query
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration"
+  >
+    Customize graph building, agents, and integrations
+  </Card>
+</CardGroup>

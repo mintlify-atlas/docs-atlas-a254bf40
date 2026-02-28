@@ -1,0 +1,155 @@
+---
+title: 'Web Platform Overview'
+description: 'Introduction to the Rowboat web platform and its architecture'
+---
+
+The Rowboat web platform is a Next.js-based dashboard that provides a comprehensive interface for managing AI agents, projects, and integrations.
+
+## Architecture
+
+The web platform is built on a modern stack designed for scalability and performance:
+
+- **Framework**: Next.js 15 with React 19
+- **Runtime**: Node.js 18+ (Alpine Linux in containers)
+- **Language**: TypeScript 5 with ES2022 target
+- **Styling**: TailwindCSS with Radix UI components
+- **AI SDK**: Vercel AI SDK with multi-provider support
+
+## Core Services
+
+The platform relies on three key infrastructure services:
+
+### MongoDB
+
+Primary database for storing:
+- User accounts and authentication data
+- Project configurations
+- Agent definitions and state
+- Chat history and conversations
+- Job queue metadata
+
+**Default Connection**: `mongodb://mongo:27017/rowboat`
+
+### Redis
+
+In-memory data store used for:
+- Session management
+- Job queue processing (BullMQ)
+- Caching frequently accessed data
+- Rate limiting counters
+
+**Default Connection**: `redis://redis:6379`
+
+### Qdrant
+
+Vector database for RAG (Retrieval Augmented Generation):
+- Document embeddings storage
+- Semantic search capabilities
+- File upload content indexing
+- Web scraping data storage
+
+**Default Connection**: `http://qdrant:6333`
+
+<Info>
+Qdrant is optional and only required if you enable RAG features (`USE_RAG=true`).
+</Info>
+
+## Platform Features
+
+### AI Agent Management
+
+Create and manage AI agents with:
+- Custom instructions and personas
+- Tool integrations (Composio, Klavis)
+- Multi-provider LLM support (OpenAI, Anthropic, Google, custom)
+- Agent-to-agent communication
+
+### RAG Capabilities
+
+When enabled, the platform supports:
+- **File Uploads**: Process and embed documents (PDF, TXT, etc.)
+- **URL Scraping**: Extract and index web content using Firecrawl
+- **S3 Storage**: Optional cloud storage for uploaded files
+- **Semantic Search**: Query documents using natural language
+
+### Authentication
+
+Optional Auth0 integration for:
+- User registration and login
+- OAuth social providers
+- Multi-tenant isolation
+- Role-based access control
+
+### Background Workers
+
+The platform includes specialized worker processes:
+
+**RAG Worker** (`rag-worker`)
+- Processes file uploads
+- Generates embeddings
+- Indexes content in Qdrant
+- Handles web scraping jobs
+
+**Jobs Worker** (`jobs-worker`)
+- Executes scheduled tasks
+- Processes background jobs
+- Manages agent workflows
+- Handles Composio integrations
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| Frontend | React 19, Next.js 15 |
+| UI Library | HeroUI, Radix UI |
+| State Management | React hooks, Immer |
+| AI SDK | Vercel AI SDK |
+| Database | MongoDB 6.8+ |
+| Cache/Queue | Redis (ioredis) |
+| Vector DB | Qdrant |
+| File Storage | Local filesystem or AWS S3 |
+| Authentication | Auth0 (optional) |
+| API Integration | Composio, Klavis |
+| Build Tool | esbuild, Turbopack |
+
+## Development vs Production
+
+### Development Mode
+
+```bash
+npm run dev
+```
+
+Features:
+- Hot module replacement
+- Turbopack for fast builds
+- Source maps enabled
+- Runs on `http://localhost:3000`
+
+### Production Build
+
+```bash
+npm run build
+npm start
+```
+
+Features:
+- Optimized bundle size
+- Standalone output for Docker
+- Static asset optimization
+- Server-side rendering
+
+<Warning>
+The production build requires all environment variables to be set at build time. Make sure your `.env` file is complete before building.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Deployment" icon="rocket" href="/platform/web/deployment">
+    Learn how to deploy the web platform using Docker
+  </Card>
+  <Card title="Configuration" icon="gear" href="/platform/web/configuration">
+    Configure environment variables and features
+  </Card>
+</CardGroup>

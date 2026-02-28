@@ -1,0 +1,591 @@
+---
+title: 'Environment Configuration'
+description: 'Complete reference for Rowboat web platform environment variables'
+---
+
+The Rowboat web platform is configured entirely through environment variables. This page documents all available options.
+
+## Basic Configuration
+
+These variables are required for the platform to function.
+
+### OpenAI API Key
+
+<ParamField path="OPENAI_API_KEY" type="string" required>
+  Your OpenAI API key for accessing GPT models.
+
+  ```bash
+  OPENAI_API_KEY=sk-proj-...
+  ```
+</ParamField>
+
+<Info>
+Even if you use alternative LLM providers, this key is currently required for some internal features.
+</Info>
+
+### Database Connections
+
+<ParamField path="MONGODB_CONNECTION_STRING" type="string" default="mongodb://mongo:27017/rowboat">
+  MongoDB connection URI.
+
+  ```bash
+  MONGODB_CONNECTION_STRING=mongodb://mongo:27017/rowboat
+  ```
+</ParamField>
+
+<ParamField path="REDIS_URL" type="string" default="redis://redis:6379">
+  Redis connection URL for caching and job queues.
+
+  ```bash
+  REDIS_URL=redis://redis:6379
+  ```
+</ParamField>
+
+## Authentication (Auth0)
+
+Enable user authentication with Auth0.
+
+<ParamField path="USE_AUTH" type="boolean" default="false">
+  Enable or disable Auth0 authentication.
+
+  ```bash
+  USE_AUTH=true
+  ```
+</ParamField>
+
+<Warning>
+When `USE_AUTH=false`, the platform runs in single-user mode without authentication. This is only suitable for local development.
+</Warning>
+
+### Auth0 Configuration
+
+Required when `USE_AUTH=true`:
+
+<ParamField path="AUTH0_SECRET" type="string" required>
+  Random secret for signing Auth0 session cookies.
+
+  ```bash
+  AUTH0_SECRET=$(openssl rand -hex 32)
+  ```
+</ParamField>
+
+<ParamField path="AUTH0_BASE_URL" type="string" required>
+  Public URL of your Rowboat instance.
+
+  ```bash
+  AUTH0_BASE_URL=https://rowboat.yourdomain.com
+  ```
+</ParamField>
+
+<ParamField path="AUTH0_ISSUER_BASE_URL" type="string" required>
+  Your Auth0 tenant URL.
+
+  ```bash
+  AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
+  ```
+</ParamField>
+
+<ParamField path="AUTH0_CLIENT_ID" type="string" required>
+  Auth0 application client ID.
+
+  ```bash
+  AUTH0_CLIENT_ID=abc123...
+  ```
+</ParamField>
+
+<ParamField path="AUTH0_CLIENT_SECRET" type="string" required>
+  Auth0 application client secret.
+
+  ```bash
+  AUTH0_CLIENT_SECRET=secret123...
+  ```
+</ParamField>
+
+## RAG (Retrieval Augmented Generation)
+
+Enable RAG features for document search and semantic retrieval.
+
+### Core RAG Settings
+
+<ParamField path="USE_RAG" type="boolean" default="false">
+  Enable RAG features.
+
+  ```bash
+  USE_RAG=true
+  ```
+</ParamField>
+
+<ParamField path="QDRANT_URL" type="string">
+  Qdrant vector database URL.
+
+  ```bash
+  QDRANT_URL=http://qdrant:6333
+  ```
+</ParamField>
+
+<ParamField path="QDRANT_API_KEY" type="string">
+  API key for authenticating with Qdrant.
+
+  ```bash
+  QDRANT_API_KEY=your-qdrant-key
+  ```
+</ParamField>
+
+### File Uploads
+
+Enable file upload and processing:
+
+<ParamField path="USE_RAG_UPLOADS" type="boolean" default="false">
+  Enable file upload capabilities.
+
+  ```bash
+  USE_RAG_UPLOADS=true
+  ```
+</ParamField>
+
+<ParamField path="USE_RAG_S3_UPLOADS" type="boolean" default="false">
+  Store uploads in S3 instead of local filesystem.
+
+  ```bash
+  USE_RAG_S3_UPLOADS=true
+  ```
+</ParamField>
+
+### S3 Configuration
+
+Required when `USE_RAG_S3_UPLOADS=true`:
+
+<ParamField path="AWS_ACCESS_KEY_ID" type="string">
+  AWS access key for S3.
+
+  ```bash
+  AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+  ```
+</ParamField>
+
+<ParamField path="AWS_SECRET_ACCESS_KEY" type="string">
+  AWS secret key for S3.
+
+  ```bash
+  AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  ```
+</ParamField>
+
+<ParamField path="RAG_UPLOADS_S3_BUCKET" type="string">
+  S3 bucket name for uploads.
+
+  ```bash
+  RAG_UPLOADS_S3_BUCKET=rowboat-uploads
+  ```
+</ParamField>
+
+<ParamField path="RAG_UPLOADS_S3_REGION" type="string">
+  AWS region for S3 bucket.
+
+  ```bash
+  RAG_UPLOADS_S3_REGION=us-east-1
+  ```
+</ParamField>
+
+### Web Scraping
+
+Enable URL scraping with Firecrawl:
+
+<ParamField path="USE_RAG_SCRAPING" type="boolean" default="false">
+  Enable web scraping features.
+
+  ```bash
+  USE_RAG_SCRAPING=true
+  ```
+</ParamField>
+
+<ParamField path="FIRECRAWL_API_KEY" type="string">
+  Firecrawl API key for web scraping.
+
+  ```bash
+  FIRECRAWL_API_KEY=fc-...
+  ```
+
+  Get your key at [firecrawl.dev](https://firecrawl.dev)
+</ParamField>
+
+### Embedding Configuration
+
+<ParamField path="EMBEDDING_PROVIDER_BASE_URL" type="string">
+  Custom base URL for embedding provider.
+
+  ```bash
+  EMBEDDING_PROVIDER_BASE_URL=https://api.openai.com/v1
+  ```
+</ParamField>
+
+<ParamField path="EMBEDDING_PROVIDER_API_KEY" type="string">
+  API key for embedding provider.
+
+  ```bash
+  EMBEDDING_PROVIDER_API_KEY=sk-...
+  ```
+</ParamField>
+
+<ParamField path="EMBEDDING_MODEL" type="string" default="text-embedding-ada-002">
+  Model to use for generating embeddings.
+
+  ```bash
+  EMBEDDING_MODEL=text-embedding-3-small
+  ```
+</ParamField>
+
+<ParamField path="EMBEDDING_VECTOR_SIZE" type="number" default="1536">
+  Dimension of embedding vectors (must match model output).
+
+  ```bash
+  EMBEDDING_VECTOR_SIZE=1536
+  ```
+</ParamField>
+
+<ParamField path="USE_GEMINI_FILE_PARSING" type="boolean" default="false">
+  Use Google Gemini for parsing uploaded files.
+
+  ```bash
+  USE_GEMINI_FILE_PARSING=true
+  GOOGLE_API_KEY=your-google-api-key
+  ```
+</ParamField>
+
+## LLM Provider Configuration
+
+Customize the AI model provider:
+
+<ParamField path="PROVIDER_BASE_URL" type="string">
+  Base URL for custom LLM provider.
+
+  ```bash
+  PROVIDER_BASE_URL=https://api.anthropic.com
+  ```
+</ParamField>
+
+<ParamField path="PROVIDER_API_KEY" type="string">
+  API key for custom provider.
+
+  ```bash
+  PROVIDER_API_KEY=sk-ant-...
+  ```
+</ParamField>
+
+<ParamField path="PROVIDER_DEFAULT_MODEL" type="string">
+  Default model for agents.
+
+  ```bash
+  PROVIDER_DEFAULT_MODEL=claude-3-5-sonnet-20241022
+  ```
+</ParamField>
+
+<ParamField path="PROVIDER_COPILOT_MODEL" type="string">
+  Model for copilot features.
+
+  ```bash
+  PROVIDER_COPILOT_MODEL=claude-3-5-sonnet-20241022
+  ```
+</ParamField>
+
+## Tool Integrations
+
+### Composio
+
+Integrate with Composio for external tool access:
+
+<ParamField path="USE_COMPOSIO_TOOLS" type="boolean" default="false">
+  Enable Composio integration.
+
+  ```bash
+  USE_COMPOSIO_TOOLS=true
+  ```
+</ParamField>
+
+<ParamField path="COMPOSIO_API_KEY" type="string">
+  Composio API key.
+
+  ```bash
+  COMPOSIO_API_KEY=comp_...
+  ```
+
+  Get your key at [composio.dev](https://composio.dev)
+</ParamField>
+
+<ParamField path="COMPOSIO_TRIGGERS_WEBHOOK_SECRET" type="string">
+  Webhook secret for Composio triggers.
+
+  ```bash
+  COMPOSIO_TRIGGERS_WEBHOOK_SECRET=whsec_...
+  ```
+</ParamField>
+
+### Klavis
+
+Enable Klavis tool integration:
+
+<ParamField path="USE_KLAVIS_TOOLS" type="boolean" default="false">
+  Enable Klavis integration.
+
+  ```bash
+  USE_KLAVIS_TOOLS=true
+  ```
+</ParamField>
+
+<ParamField path="KLAVIS_API_KEY" type="string">
+  Klavis API key.
+
+  ```bash
+  KLAVIS_API_KEY=klv_...
+  ```
+</ParamField>
+
+<ParamField path="KLAVIS_GITHUB_CLIENT_ID" type="string">
+  GitHub OAuth client ID for Klavis.
+
+  ```bash
+  KLAVIS_GITHUB_CLIENT_ID=Iv1.abc123...
+  ```
+</ParamField>
+
+<ParamField path="KLAVIS_GOOGLE_CLIENT_ID" type="string">
+  Google OAuth client ID for Klavis.
+
+  ```bash
+  KLAVIS_GOOGLE_CLIENT_ID=123456789-abc.apps.googleusercontent.com
+  ```
+</ParamField>
+
+## Rate Limiting & Quotas
+
+<ParamField path="MAX_QUERIES_PER_MINUTE" type="number">
+  Maximum API queries per minute per user.
+
+  ```bash
+  MAX_QUERIES_PER_MINUTE=60
+  ```
+</ParamField>
+
+<ParamField path="MAX_PROJECTS_PER_USER" type="number">
+  Maximum projects a user can create.
+
+  ```bash
+  MAX_PROJECTS_PER_USER=10
+  ```
+</ParamField>
+
+## Billing Integration
+
+<ParamField path="USE_BILLING" type="boolean" default="false">
+  Enable billing integration.
+
+  ```bash
+  USE_BILLING=true
+  ```
+</ParamField>
+
+<ParamField path="BILLING_API_URL" type="string">
+  Billing service URL.
+
+  ```bash
+  BILLING_API_URL=https://billing.yourdomain.com
+  ```
+</ParamField>
+
+<ParamField path="BILLING_API_KEY" type="string">
+  API key for billing service.
+
+  ```bash
+  BILLING_API_KEY=bill_...
+  ```
+</ParamField>
+
+## Microservices
+
+Configuration for optional microservices:
+
+### Agents API
+
+<ParamField path="AGENTS_API_URL" type="string" default="http://rowboat_agents:3001">
+  URL for the agents microservice.
+
+  ```bash
+  AGENTS_API_URL=http://rowboat_agents:3001
+  ```
+</ParamField>
+
+<ParamField path="AGENTS_API_KEY" type="string">
+  API key for agents service.
+
+  ```bash
+  AGENTS_API_KEY=$(openssl rand -hex 32)
+  ```
+</ParamField>
+
+### Copilot API
+
+<ParamField path="COPILOT_API_URL" type="string" default="http://copilot:3002">
+  URL for the copilot microservice.
+
+  ```bash
+  COPILOT_API_URL=http://copilot:3002
+  ```
+</ParamField>
+
+<ParamField path="COPILOT_API_KEY" type="string">
+  API key for copilot service.
+
+  ```bash
+  COPILOT_API_KEY=$(openssl rand -hex 32)
+  ```
+</ParamField>
+
+### Voice API
+
+<ParamField path="VOICE_API_URL" type="string">
+  URL for voice interaction service.
+
+  ```bash
+  VOICE_API_URL=https://voice.yourdomain.com
+  ```
+</ParamField>
+
+## Chat Widget
+
+Enable embeddable chat widget:
+
+<ParamField path="USE_CHAT_WIDGET" type="boolean" default="false">
+  Enable chat widget features.
+
+  ```bash
+  USE_CHAT_WIDGET=true
+  ```
+</ParamField>
+
+<ParamField path="CHAT_WIDGET_HOST" type="string" default="http://localhost:3006">
+  URL where chat widget is hosted.
+
+  ```bash
+  CHAT_WIDGET_HOST=https://widget.yourdomain.com
+  ```
+</ParamField>
+
+<ParamField path="CHAT_WIDGET_SESSION_JWT_SECRET" type="string">
+  Secret for signing chat widget session tokens.
+
+  ```bash
+  CHAT_WIDGET_SESSION_JWT_SECRET=$(openssl rand -hex 32)
+  ```
+</ParamField>
+
+## Example Configurations
+
+### Minimal Development Setup
+
+```bash .env
+# Minimal config for local development
+OPENAI_API_KEY=sk-proj-...
+```
+
+### Production with RAG
+
+```bash .env
+# Production with RAG and Auth
+NODE_ENV=production
+OPENAI_API_KEY=sk-proj-...
+
+# Auth
+USE_AUTH=true
+AUTH0_SECRET=generated-secret-here
+AUTH0_BASE_URL=https://rowboat.yourdomain.com
+AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+
+# RAG with S3
+USE_RAG=true
+QDRANT_URL=http://qdrant:6333
+QDRANT_API_KEY=your-qdrant-key
+
+USE_RAG_UPLOADS=true
+USE_RAG_S3_UPLOADS=true
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+RAG_UPLOADS_S3_BUCKET=rowboat-uploads
+RAG_UPLOADS_S3_REGION=us-east-1
+
+USE_RAG_SCRAPING=true
+FIRECRAWL_API_KEY=fc-...
+
+# Rate limiting
+MAX_QUERIES_PER_MINUTE=100
+MAX_PROJECTS_PER_USER=25
+```
+
+### Full Feature Set
+
+```bash .env
+# All features enabled
+NODE_ENV=production
+PORT=3000
+
+# AI Provider
+OPENAI_API_KEY=sk-proj-...
+PROVIDER_BASE_URL=https://api.anthropic.com
+PROVIDER_API_KEY=sk-ant-...
+PROVIDER_DEFAULT_MODEL=claude-3-5-sonnet-20241022
+PROVIDER_COPILOT_MODEL=claude-3-5-sonnet-20241022
+
+# Auth
+USE_AUTH=true
+AUTH0_SECRET=generated-secret
+AUTH0_BASE_URL=https://rowboat.yourdomain.com
+AUTH0_ISSUER_BASE_URL=https://tenant.auth0.com
+AUTH0_CLIENT_ID=client-id
+AUTH0_CLIENT_SECRET=client-secret
+
+# RAG
+USE_RAG=true
+QDRANT_URL=http://qdrant:6333
+QDRANT_API_KEY=qdrant-key
+USE_RAG_UPLOADS=true
+USE_RAG_S3_UPLOADS=true
+AWS_ACCESS_KEY_ID=aws-key
+AWS_SECRET_ACCESS_KEY=aws-secret
+RAG_UPLOADS_S3_BUCKET=uploads
+RAG_UPLOADS_S3_REGION=us-east-1
+USE_RAG_SCRAPING=true
+FIRECRAWL_API_KEY=fc-key
+
+# Tools
+USE_COMPOSIO_TOOLS=true
+COMPOSIO_API_KEY=comp-key
+COMPOSIO_TRIGGERS_WEBHOOK_SECRET=whsec-secret
+USE_KLAVIS_TOOLS=true
+KLAVIS_API_KEY=klv-key
+
+# Billing
+USE_BILLING=true
+BILLING_API_URL=https://billing.yourdomain.com
+BILLING_API_KEY=bill-key
+
+# Chat Widget
+USE_CHAT_WIDGET=true
+CHAT_WIDGET_HOST=https://widget.yourdomain.com
+CHAT_WIDGET_SESSION_JWT_SECRET=widget-secret
+
+# Limits
+MAX_QUERIES_PER_MINUTE=100
+MAX_PROJECTS_PER_USER=25
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book" href="/platform/web/overview">
+    Learn about the web platform architecture
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/platform/web/deployment">
+    Deploy with Docker Compose
+  </Card>
+</CardGroup>

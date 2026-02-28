@@ -1,0 +1,312 @@
+---
+title: 'Web Search Setup'
+description: 'Configure Brave and Exa search APIs'
+icon: 'magnifying-glass'
+---
+
+Rowboat can perform web searches to gather information for your tasks. Two search providers are supported: Brave for general web search and Exa for research-focused queries.
+
+## Search Providers
+
+### Brave Search
+
+**Best for:** Quick facts, current events, general web search
+
+Brave Search provides fast, privacy-focused web search results similar to Google.
+
+### Exa Search
+
+**Best for:** Research, finding articles/papers, exploring topics in depth, discovering quality sources
+
+Exa (formerly Metaphor) specializes in finding high-quality content and can filter by category (companies, research papers, news, people, etc.).
+
+## Configuration
+
+<Steps>
+  <Step title="Choose Your Provider(s)">
+    You can configure one or both search providers depending on your needs:
+    
+    - **Brave only**: Fast general-purpose search
+    - **Exa only**: Research and discovery
+    - **Both**: Rowboat will choose the best tool for each query
+  </Step>
+
+  <Step title="Get API Keys">
+    **Brave Search:**
+    1. Go to [Brave Search API](https://brave.com/search/api/)
+    2. Sign up for an account
+    3. Subscribe to a plan (free tier available)
+    4. Copy your API key
+    
+    **Exa Search:**
+    1. Go to [Exa](https://exa.ai/)
+    2. Sign up for an account
+    3. Navigate to your dashboard
+    4. Copy your API key
+  </Step>
+
+  <Step title="Create Configuration Files">
+    <CodeGroup>
+    ```bash Brave
+    # Create brave-search.json
+    ~/.rowboat/config/brave-search.json
+    ```
+    
+    ```bash Exa
+    # Create exa-search.json
+    ~/.rowboat/config/exa-search.json
+    ```
+    </CodeGroup>
+    
+    Add your API keys:
+    
+    <CodeGroup>
+    ```json brave-search.json
+    {
+      "apiKey": "your-brave-api-key-here"
+    }
+    ```
+    
+    ```json exa-search.json
+    {
+      "apiKey": "your-exa-api-key-here"
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Restart Rowboat">
+    Restart Rowboat to load the new configuration. Search tools will automatically become available.
+  </Step>
+</Steps>
+
+## Configuration Schema
+
+### Brave Search
+
+<CodeGroup>
+```json brave-search.json
+{
+  "apiKey": "<your-brave-api-key>"
+}
+```
+
+```bash File Location
+~/.rowboat/config/brave-search.json
+```
+</CodeGroup>
+
+**Schema Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `apiKey` | string | Yes | Your Brave Search API key |
+
+### Exa Search
+
+<CodeGroup>
+```json exa-search.json
+{
+  "apiKey": "<your-exa-api-key>"
+}
+```
+
+```bash File Location
+~/.rowboat/config/exa-search.json
+```
+</CodeGroup>
+
+**Schema Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `apiKey` | string | Yes | Your Exa Search API key |
+
+## Using Search in Rowboat
+
+Once configured, Rowboat can use search tools automatically when needed:
+
+```
+You: "What's the latest news about AI safety?"
+
+Rowboat: [uses web-search tool to find current articles]
+```
+
+```
+You: "Find research papers about knowledge graphs"
+
+Rowboat: [uses research-search tool for academic content]
+```
+
+### Tool Selection
+
+Rowboat automatically chooses the right search tool:
+
+- **web-search (Brave)**: Quick facts, current events, general queries, product info
+- **research-search (Exa)**: Articles, papers, companies, people, in-depth topics
+
+<Info>
+**CRITICAL:** Rowboat always starts with exactly ONE search call, picking the single best tool for your query. Additional searches only happen if needed based on initial results.
+</Info>
+
+## API Details
+
+### Brave Search API
+
+**Endpoint:** `https://api.search.brave.com/res/v1/web/search`
+
+**Parameters:**
+- `q`: Search query
+- `count`: Number of results (1-20, default: 5)
+- `freshness`: Optional time filter (e.g., "pd" for past day, "pw" for past week)
+
+**Response includes:**
+- Title
+- URL
+- Description
+
+### Exa Search API
+
+**Endpoint:** `https://api.exa.ai/search`
+
+**Parameters:**
+- `query`: Search query
+- `numResults`: Number of results (1-20, default: 5)
+- `category`: Optional filter (company, research paper, news, tweet, personal site, financial report, people)
+- `type`: Search type (auto, neural, keyword)
+
+**Response includes:**
+- Title
+- URL
+- Published date
+- Author
+- Highlights
+- Text snippets
+
+## Troubleshooting
+
+### Search tools not available
+
+1. Verify config files exist:
+   - `~/.rowboat/config/brave-search.json`
+   - `~/.rowboat/config/exa-search.json`
+2. Check that `apiKey` field is present and not empty
+3. Restart Rowboat
+
+### "API key not configured" error
+
+<CodeGroup>
+```json ❌ Incorrect
+{
+  "key": "your-api-key"
+}
+```
+
+```json ✅ Correct
+{
+  "apiKey": "your-api-key"
+}
+```
+</CodeGroup>
+
+Make sure the field is named `apiKey`.
+
+### "API key is empty" error
+
+Your config file exists but the `apiKey` value is empty:
+
+```json
+// ❌ Don't do this
+{
+  "apiKey": ""
+}
+
+// ✅ Add your actual key
+{
+  "apiKey": "BSA...your-key-here"
+}
+```
+
+### API errors
+
+**Brave "401 Unauthorized":**
+- Invalid API key
+- Generate a new key from Brave Search API dashboard
+
+**Brave "403 Forbidden":**
+- API subscription inactive or expired
+- Check your plan status
+
+**Exa errors:**
+- Check your API key is valid
+- Verify you haven't exceeded rate limits
+- See [Exa documentation](https://docs.exa.ai/) for details
+
+## Pricing
+
+### Brave Search
+
+**Free Tier:**
+- 2,000 queries/month
+- Rate limit: 1 query/second
+
+**Pro Plans:**
+- AI Pro: $5/month - 20,000 queries
+- Data Pro: $50/month - 200,000 queries
+- Enterprise: Custom pricing
+
+See [Brave Search Pricing](https://brave.com/search/api/#pricing)
+
+### Exa Search
+
+**Free Tier:**
+- 1,000 searches/month
+- Basic features
+
+**Paid Plans:**
+- Starting at $29/month
+- Higher rate limits
+- Advanced features (filtering, highlights, etc.)
+
+See [Exa Pricing](https://exa.ai/pricing)
+
+## Privacy
+
+<Warning>
+**Search Privacy:**
+
+- Search queries are sent to the respective API providers
+- **Brave**: Privacy-focused, does not profile users
+- **Exa**: Check their [privacy policy](https://exa.ai/privacy)
+- Results are stored in your local Rowboat conversation history
+</Warning>
+
+## When to Use Which Tool
+
+| Use Case | Recommended Tool |
+|----------|------------------|
+| Current news and events | Brave (web-search) |
+| Product information | Brave (web-search) |
+| Quick factual queries | Brave (web-search) |
+| Finding research papers | Exa (research-search) |
+| Discovering articles/blogs | Exa (research-search) |
+| Company research | Exa (research-search) |
+| Finding specific people | Exa (research-search) |
+| Exploring a topic in depth | Exa (research-search) |
+
+## API Key Security
+
+<Warning>
+**Keep your API keys secure:**
+
+- Never commit config files to version control
+- Don't share API keys publicly
+- Rotate keys regularly
+- Monitor usage in provider dashboards
+</Warning>
+
+## Additional Resources
+
+- [Brave Search API Docs](https://brave.com/search/api/docs/)
+- [Exa Documentation](https://docs.exa.ai/)
+- [Web Search Skill in Rowboat](https://github.com/rowboatlabs/rowboat/tree/main/apps/x/packages/core/src/application/assistant/skills/web-search)

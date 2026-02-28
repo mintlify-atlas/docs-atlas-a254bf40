@@ -1,0 +1,215 @@
+---
+title: Monorepo Structure
+description: Understanding Rowboat's monorepo and workspace organization
+---
+
+Rowboat uses a monorepo structure with multiple applications and a nested pnpm workspace for the Electron app.
+
+## Top-Level Structure
+
+```
+rowboat/
+├── apps/
+│   ├── x/                 # Electron desktop app
+│   ├── rowboat/           # Next.js web dashboard
+│   ├── rowboatx/          # Next.js frontend
+│   ├── cli/               # CLI tool
+│   ├── python-sdk/        # Python SDK
+│   └── docs/              # Documentation site
+├── CLAUDE.md              # AI agent context file
+└── README.md              # User-facing readme
+```
+
+## Electron App Workspace (`apps/x`)
+
+The Electron app is a **nested pnpm workspace** with its own package management and build system.
+
+### Directory Layout
+
+```
+apps/x/
+├── package.json           # Workspace root, dev scripts
+├── pnpm-workspace.yaml    # Defines workspace packages
+├── pnpm-lock.yaml         # Lockfile
+├── apps/
+│   ├── main/              # Electron main process
+│   │   ├── src/           # Main process source
+│   │   ├── forge.config.cjs   # Electron Forge config
+│   │   └── bundle.mjs     # esbuild bundler
+│   ├── renderer/          # React UI (Vite)
+│   │   ├── src/           # React components
+│   │   └── vite.config.ts
+│   └── preload/           # Electron preload scripts
+│       └── src/
+└── packages/
+    ├── shared/            # @x/shared - Types, utilities, validators
+    └── core/              # @x/core - Business logic, AI, OAuth, MCP
+```
+
+## Workspace Configuration
+
+The pnpm workspace is configured in `apps/x/pnpm-workspace.yaml`:
+
+```yaml
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - core-js
+  - electron
+  - electron-winstaller
+  - esbuild
+  - fs-xattr
+  - macos-alias
+  - protobufjs
+```
+
+<Note>
+  The `onlyBuiltDependencies` field ensures that only these packages are built during installation, improving build performance.
+</Note>
+
+## Package Descriptions
+
+### Internal Packages
+
+<CodeGroup>
+```json packages/shared/package.json
+{
+  "name": "@x/shared",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "zod": "^4.2.1"
+  }
+}
+```
+
+```json packages/core/package.json
+{
+  "name": "@x/core",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@x/shared": "workspace:*",
+    "ai": "^5.0.133",
+    "@ai-sdk/anthropic": "^2.0.63",
+    "@ai-sdk/google": "^2.0.53",
+    "@ai-sdk/openai": "^2.0.91"
+    // ... more dependencies
+  }
+}
+```
+</CodeGroup>
+
+#### @x/shared
+
+Contains shared types, utilities, and validators used across all workspace packages.
+
+- **Dependencies**: Zod for schema validation
+- **Purpose**: Type definitions, common utilities
+- **Build**: TypeScript compilation only
+
+#### @x/core
+
+Contains core business logic and integrations:
+
+- AI provider integrations (Vercel AI SDK, Anthropic, OpenAI, Google)
+- OAuth and authentication
+- Model Context Protocol (MCP) implementation
+- Document parsing (PDF, CSV, XLSX, DOCX)
+- Git operations
+
+<Warning>
+  `@x/core` depends on `@x/shared` via the `workspace:*` protocol. Always build `shared` before `core`.
+</Warning>
+
+### Application Packages
+
+#### apps/main
+
+The Electron main process:
+
+- Entry: `apps/main/src/main.ts`
+- Output: `.package/dist/main.cjs` (bundled with esbuild)
+- Depends on: `@x/shared`, `@x/core`
+
+#### apps/renderer
+
+The React UI:
+
+- Entry: `apps/renderer/src/main.tsx`
+- Output: `apps/renderer/dist/` (bundled with Vite)
+- Depends on: `@x/shared`
+- Hot-reloads in development mode
+
+#### apps/preload
+
+Electron preload scripts for secure IPC:
+
+- Entry: `apps/preload/src/preload.ts`
+- Output: `apps/preload/dist/preload.js`
+- Depends on: `@x/shared`
+
+## Workspace Dependencies
+
+Packages reference each other using pnpm's `workspace:*` protocol:
+
+```json
+{
+  "dependencies": {
+    "@x/shared": "workspace:*",
+    "@x/core": "workspace:*"
+  }
+}
+```
+
+<Note>
+  The `workspace:*` protocol tells pnpm to symlink local packages instead of installing from npm. This is why pnpm is required.
+</Note>
+
+## Build Dependencies
+
+The workspace has a specific build order based on dependencies:
+
+```
+shared (no deps)
+   ↓
+core (depends on shared)
+   ↓
+preload (depends on shared)
+   ↓
+renderer (depends on shared)
+main (depends on shared, core)
+```
+
+The `npm run deps` command in the workspace root builds packages in order:
+
+```json
+{
+  "scripts": {
+    "shared": "cd packages/shared && npm run build",
+    "core": "cd packages/core && npm run build",
+    "preload": "cd apps/preload && npm run build",
+    "deps": "npm run shared && npm run core && npm run preload"
+  }
+}
+```
+
+## Key Files Reference
+
+| Purpose | File |
+|---------|------|
+| Electron main entry | `apps/x/apps/main/src/main.ts` |
+| React app entry | `apps/x/apps/renderer/src/main.tsx` |
+| Forge config (packaging) | `apps/x/apps/main/forge.config.cjs` |
+| Main process bundler | `apps/x/apps/main/bundle.mjs` |
+| Vite config | `apps/x/apps/renderer/vite.config.ts` |
+| Shared types | `apps/x/packages/shared/src/` |
+| Core business logic | `apps/x/packages/core/src/` |
+| Workspace config | `apps/x/pnpm-workspace.yaml` |
+| Root scripts | `apps/x/package.json` |

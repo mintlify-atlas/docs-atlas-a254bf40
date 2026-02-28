@@ -1,122 +1,166 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Rowboat",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#10b981",
+    "light": "#10b981",
+    "dark": "#10b981"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/rowboatlabs/rowboat"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/rowboatlabs/rowboat",
+      "discord": "https://discord.gg/wajrgmJQ6b",
+      "x": "https://x.com/rowboatlabshq"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core-concepts/knowledge-graph",
+              "core-concepts/memory-system",
+              "core-concepts/background-agents",
+              "core-concepts/local-first"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Desktop App",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "desktop/overview",
+              "desktop/features",
+              "desktop/model-configuration",
+              "desktop/workspace"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Integrations",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "integrations/gmail",
+              "integrations/google-calendar",
+              "integrations/granola",
+              "integrations/fireflies",
+              "integrations/mcp",
+              "integrations/slack"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "use-cases/meeting-prep",
+              "use-cases/email-drafting",
+              "use-cases/document-collaboration",
+              "use-cases/presentations",
+              "use-cases/voice-notes"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/google-setup",
+              "configuration/models",
+              "configuration/deepgram",
+              "configuration/web-search",
+              "configuration/note-creation"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Platform",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "platform/introduction",
+              "platform/architecture"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "CLI Tool",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "platform/cli/overview",
+              "platform/cli/installation",
+              "platform/cli/commands"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "platform/python-sdk/overview",
+              "platform/python-sdk/installation",
+              "platform/python-sdk/usage",
+              "platform/python-sdk/api-reference"
+            ]
+          },
+          {
+            "group": "Web Platform",
+            "pages": [
+              "platform/web/overview",
+              "platform/web/deployment",
+              "platform/web/configuration"
+            ]
+          },
+          {
+            "group": "Agent System",
+            "pages": [
+              "platform/agents/overview",
+              "platform/agents/runtime",
+              "platform/agents/background-agents",
+              "platform/agents/skills"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/overview",
+              "development/monorepo-structure",
+              "development/electron-app",
+              "development/building",
+              "development/testing"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture/overview",
+              "development/architecture/knowledge-system",
+              "development/architecture/ai-integration",
+              "development/architecture/oauth"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "development/license",
+              "development/changelog"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

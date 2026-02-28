@@ -1,0 +1,328 @@
+---
+title: Electron App Development
+description: Deep dive into Rowboat's Electron application architecture
+---
+
+The Rowboat desktop application is built with Electron, featuring a React UI, TypeScript throughout, and a sophisticated build system to handle the pnpm workspace.
+
+## Architecture Overview
+
+Electron apps have three main components:
+
+1. **Main process** - Node.js backend, manages windows and system access
+2. **Renderer process** - Chromium frontend, runs the React UI
+3. **Preload scripts** - Secure bridge between main and renderer
+
+## Main Process
+
+The main process is the entry point for the Electron app.
+
+### Location and Configuration
+
+- **Source**: `apps/x/apps/main/src/main.ts`
+- **Output**: `.package/dist/main.cjs` (bundled)
+- **Package**: `apps/x/apps/main/package.json`
+
+```json
+{
+  "name": "rowboat",
+  "productName": "Rowboat",
+  "main": ".package/dist/main.cjs",
+  "scripts": {
+    "build": "rm -rf dist && tsc && node bundle.mjs",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
+  }
+}
+```
+
+### Build Process
+
+The main process uses a two-step build:
+
+<Steps>
+  <Step title="TypeScript compilation">
+    TypeScript compiles `src/` to JavaScript:
+    ```bash
+    tsc
+    ```
+  </Step>
+
+  <Step title="esbuild bundling">
+    esbuild bundles everything into a single CommonJS file:
+    ```bash
+    node bundle.mjs
+    ```
+    This includes all dependencies and workspace packages.
+  </Step>
+</Steps>
+
+<Note>
+  **Why bundle?** pnpm uses symlinks for workspace packages. Electron Forge's dependency walker can't follow symlinks. Bundling with esbuild creates a single file with all code, eliminating the need for `node_modules` in the packaged app.
+</Note>
+
+### Dependencies
+
+```json
+{
+  "dependencies": {
+    "@x/core": "workspace:*",
+    "@x/shared": "workspace:*",
+    "electron-squirrel-startup": "^1.0.1",
+    "update-electron-app": "^3.1.2"
+  }
+}
+```
+
+## Renderer Process
+
+The renderer process is a React application built with Vite.
+
+### Location and Configuration
+
+- **Source**: `apps/x/apps/renderer/src/main.tsx`
+- **Output**: `apps/renderer/dist/`
+- **Dev server**: `http://localhost:5173`
+
+### Development Mode
+
+In development, Vite provides:
+
+- Fast hot module replacement (HMR)
+- Instant updates without full reload
+- React Fast Refresh
+
+```bash
+cd apps/renderer
+npm run dev  # Starts Vite dev server on port 5173
+```
+
+<Note>
+  The main process waits for the Vite dev server to be ready before starting Electron. This is handled by the `wait-on` package.
+</Note>
+
+### Technology Stack
+
+- **React 19** - UI framework
+- **Vite 7** - Build tool and dev server
+- **TailwindCSS** - Utility-first CSS
+- **Radix UI** - Accessible component primitives
+- **TypeScript** - Type safety
+
+## Preload Scripts
+
+Preload scripts run in a context that has access to both Node.js APIs and the DOM.
+
+### Location and Purpose
+
+- **Source**: `apps/x/apps/preload/src/preload.ts`
+- **Output**: `apps/preload/dist/preload.js`
+- **Purpose**: Expose safe APIs to the renderer via `contextBridge`
+
+### Security Model
+
+```typescript
+// Preload script example
+import { contextBridge, ipcRenderer } from 'electron'
+
+contextBridge.exposeInMainWorld('api', {
+  // Expose safe, specific APIs only
+  sendMessage: (channel: string, data: any) => {
+    ipcRenderer.send(channel, data)
+  },
+  onMessage: (channel: string, callback: Function) => {
+    ipcRenderer.on(channel, (_, ...args) => callback(...args))
+  }
+})
+```
+
+<Warning>
+  Never expose the entire `ipcRenderer` or Node.js APIs directly to the renderer. Always wrap them in specific, validated functions.
+</Warning>
+
+## Build Order and Dependencies
+
+The workspace packages must be built in a specific order:
+
+```
+shared (no dependencies)
+   ↓
+core (depends on shared)
+   ↓
+preload (depends on shared)
+   ↓
+renderer (depends on shared)
+main (depends on shared, core)
+```
+
+### Building Dependencies
+
+<CodeGroup>
+```bash All dependencies
+cd apps/x
+npm run deps
+```
+
+```bash Individual packages
+cd apps/x
+npm run shared   # Build @x/shared
+npm run core     # Build @x/core
+npm run preload  # Build preload scripts
+```
+</CodeGroup>
+
+The `npm run deps` command chains these together:
+
+```json
+{
+  "scripts": {
+    "shared": "cd packages/shared && npm run build",
+    "core": "cd packages/core && npm run build",
+    "preload": "cd apps/preload && npm run build",
+    "deps": "npm run shared && npm run core && npm run preload"
+  }
+}
+```
+
+## Development Workflow
+
+### Starting the App
+
+<Steps>
+  <Step title="Build dependencies">
+    ```bash
+    cd apps/x
+    npm run deps
+    ```
+  </Step>
+
+  <Step title="Start development mode">
+    ```bash
+    npm run dev
+    ```
+    This runs two processes concurrently:
+    - Vite dev server (renderer)
+    - Electron main process
+  </Step>
+</Steps>
+
+The `dev` script uses `concurrently` to run both:
+
+```json
+{
+  "scripts": {
+    "dev": "npm run deps && concurrently -k \"npm:renderer\" \"npm:main\"",
+    "renderer": "cd apps/renderer && npm run dev",
+    "main": "wait-on http://localhost:5173 && cd apps/main && npm run build && npm run start"
+  }
+}
+```
+
+### Making Changes
+
+#### Renderer (Hot Reload)
+
+Changes to React components hot-reload automatically:
+
+```bash
+# Edit files in apps/renderer/src/
+# Save - changes appear instantly
+```
+
+#### Main Process (Restart Required)
+
+Changes to the main process require a restart:
+
+```bash
+# 1. Edit files in apps/main/src/
+# 2. Stop dev server (Ctrl+C)
+# 3. Restart: npm run dev
+```
+
+<Warning>
+  Main process changes don't hot-reload. Always restart the dev server after editing main process code.
+</Warning>
+
+#### Shared/Core Packages (Rebuild Required)
+
+Changes to workspace packages require rebuilding:
+
+```bash
+# 1. Edit files in packages/shared/src/ or packages/core/src/
+# 2. Rebuild dependencies
+npm run deps
+# 3. Restart dev server
+npm run dev
+```
+
+## Common Development Tasks
+
+### Add a New Dependency
+
+<CodeGroup>
+```bash Main process
+cd apps/x/apps/main
+pnpm add <package>
+```
+
+```bash Renderer
+cd apps/x/apps/renderer
+pnpm add <package>
+```
+
+```bash Shared package
+cd apps/x/packages/shared
+pnpm add <package>
+```
+</CodeGroup>
+
+### Add a Shared Type
+
+<Steps>
+  <Step title="Edit the shared package">
+    ```typescript
+    // apps/x/packages/shared/src/types.ts
+    export interface MyNewType {
+      id: string
+      name: string
+    }
+    ```
+  </Step>
+
+  <Step title="Rebuild dependencies">
+    ```bash
+    cd apps/x
+    npm run deps
+    ```
+  </Step>
+
+  <Step title="Import in your code">
+    ```typescript
+    import { MyNewType } from '@x/shared'
+    ```
+  </Step>
+</Steps>
+
+### Verify Compilation
+
+```bash
+cd apps/x
+npm run deps && npm run lint
+```
+
+This builds all packages and runs ESLint across the workspace.
+
+## Electron Entry Points
+
+| Component | Entry | Output |
+|-----------|-------|--------|
+| main | `apps/main/src/main.ts` | `.package/dist/main.cjs` |
+| renderer | `apps/renderer/src/main.tsx` | `apps/renderer/dist/` |
+| preload | `apps/preload/src/preload.ts` | `apps/preload/dist/preload.js` |
+
+## Key Configuration Files
+
+- **`forge.config.cjs`** - Electron Forge packaging configuration
+- **`bundle.mjs`** - esbuild bundler for main process
+- **`vite.config.ts`** - Vite configuration for renderer
+- **`tsconfig.json`** - TypeScript compiler options (per package)

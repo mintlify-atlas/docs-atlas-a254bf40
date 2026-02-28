@@ -1,0 +1,377 @@
+---
+title: Slack Integration
+description: Send messages, search conversations, and interact with your Slack workspace
+---
+
+Rowboat integrates with Slack via Composio to enable AI-powered interactions with your workspace.
+
+## Overview
+
+The Slack integration allows you to:
+- Send messages to channels and DMs
+- Search message history
+- List channels and users
+- View conversation history
+- Execute advanced Slack actions
+
+<Info>
+The Slack integration uses [Composio](https://composio.dev) for OAuth and tool execution.
+</Info>
+
+## Prerequisites
+
+Before using Slack tools, always check if Slack is connected:
+
+```typescript
+slack-checkConnection({})
+```
+
+If not connected, the user needs to connect Slack from settings/onboarding.
+
+## Available Tools
+
+### Check Connection
+
+```typescript
+slack-checkConnection({})
+```
+
+Returns whether Slack is connected and ready to use.
+
+### List Users
+
+```typescript
+slack-listUsers({ limit: 100 })
+```
+
+Lists users in the workspace. Use this to resolve a name to a user ID.
+
+### List Channels
+
+```typescript
+slack-listChannels({
+  types: "public_channel,private_channel",
+  limit: 100
+})
+```
+
+Lists channels the user has access to.
+
+### List DM Conversations
+
+```typescript
+slack-getDirectMessages({ limit: 50 })
+```
+
+Lists DM channels (type "im"). Each entry includes the DM channel ID and the user ID.
+
+### Get Conversation History
+
+```typescript
+slack-getChannelHistory({
+  channel: "C01234567",
+  limit: 20
+})
+```
+
+Fetches recent messages for a channel or DM.
+
+### Search Messages
+
+```typescript
+slack-searchMessages({
+  query: "in:@username",
+  count: 20
+})
+```
+
+Searches Slack messages using [Slack search syntax](https://slack.com/help/articles/202528808).
+
+**Search Examples:**
+
+- `in:@alice` - Messages in DMs with Alice
+- `from:@bob` - Messages from Bob
+- `in:#engineering` - Messages in #engineering channel
+- `has:link` - Messages containing links
+- `has:attachment` - Messages with attachments
+- `after:2024-01-01` - Messages after a date
+
+### Send a Message
+
+```typescript
+slack-sendMessage({
+  channel: "C01234567",
+  text: "Hello team!"
+})
+```
+
+Sends a message to a channel or DM.
+
+<Warning>
+Always show the draft message to the user before sending. Never send messages without user confirmation.
+</Warning>
+
+## Composio Tool Catalog
+
+Rowboat includes a comprehensive catalog of 113 Slack tools from Composio:
+
+### Common Actions
+
+| Tool | Slug | Description |
+|------|------|-------------|
+| Send Message | `SLACK_SEND_MESSAGE` | Posts a message to a channel, DM, or group |
+| Search Messages | `SLACK_SEARCH_MESSAGES` | Workspace-wide message search |
+| List Channels | `SLACK_LIST_ALL_CHANNELS` | Lists all conversations |
+| Find User by Email | `SLACK_FIND_USER_BY_EMAIL_ADDRESS` | Finds a user by email |
+| Add Reaction | `SLACK_ADD_REACTION_TO_AN_ITEM` | Adds emoji reaction |
+| Pin Item | `SLACK_PINS_AN_ITEM_TO_A_CHANNEL` | Pins a message |
+
+### Channel Management
+
+| Tool | Slug | Description |
+|------|------|-------------|
+| Create Channel | `SLACK_CREATE_CHANNEL` | Creates a public or private channel |
+| Archive Channel | `SLACK_ARCHIVE_A_PUBLIC_OR_PRIVATE_CHANNEL` | Archives a channel |
+| Rename Channel | `SLACK_RENAME_A_SLACK_CHANNEL` | Renames a channel |
+| Invite to Channel | `SLACK_INVITE_USERS_TO_A_SLACK_CHANNEL` | Invites users by ID |
+
+### User Management
+
+| Tool | Slug | Description |
+|------|------|-------------|
+| List All Users | `SLACK_LIST_ALL_USERS` | Retrieves all users |
+| Get User Details | `SLACK_RETRIEVE_DETAILED_USER_INFORMATION` | Gets user info by ID |
+| Set User Presence | `SLACK_MANUALLY_SET_USER_PRESENCE` | Sets presence (active/away) |
+
+### Files & Attachments
+
+| Tool | Slug | Description |
+|------|------|-------------|
+| Upload File | `SLACK_UPLOAD_OR_CREATE_A_FILE_IN_SLACK` | Uploads files |
+| List Files | `SLACK_LIST_FILES_WITH_FILTERS_IN_SLACK` | Lists files |
+| Share File Publicly | `SLACK_ENABLE_PUBLIC_SHARING_OF_A_FILE` | Creates public URL |
+
+### Execute Custom Action
+
+```typescript
+slack-executeAction({
+  toolSlug: "SLACK_SEND_MESSAGE",
+  input: {
+    channel: "C01234567",
+    text: "Hello!"
+  }
+})
+```
+
+Executes any Slack tool using its exact slug from the catalog.
+
+### Discover Tools
+
+```typescript
+slack-listAvailableTools({ search: "conversation" })
+```
+
+Lists available Slack tools from Composio. Use this only if a builtin tool fails and you need a specific slug.
+
+<Info>
+Prefer using the pinned tool catalog slugs to avoid redundant discovery calls.
+</Info>
+
+## Workflows
+
+### Find the Most Recent DM with Someone
+
+<Steps>
+  <Step title="Search messages first">
+    ```typescript
+    slack-searchMessages({
+      query: "in:@Alice",
+      count: 1
+    })
+    ```
+  </Step>
+  
+  <Step title="Get exact DM history (optional)">
+    ```typescript
+    // Find user ID
+    const users = await slack-listUsers({});
+    const alice = users.find(u => u.name === 'alice');
+    
+    // Find DM channel
+    const dms = await slack-getDirectMessages({});
+    const dmChannel = dms.find(dm => dm.user === alice.id);
+    
+    // Get history
+    await slack-getChannelHistory({
+      channel: dmChannel.id,
+      limit: 20
+    });
+    ```
+  </Step>
+</Steps>
+
+### Send a Message
+
+<Steps>
+  <Step title="Draft the message">
+    Show the draft to the user:
+    
+    ```
+    I'll send this message to #engineering:
+    
+    "Team, the deployment is scheduled for 3pm today."
+    ```
+  </Step>
+  
+  <Step title="Wait for approval">
+    Only after user confirmation, send the message:
+    
+    ```typescript
+    await slack-sendMessage({
+      channel: "C01234567",
+      text: "Team, the deployment is scheduled for 3pm today."
+    })
+    ```
+  </Step>
+</Steps>
+
+### Cross-Reference with Knowledge Base
+
+```typescript
+// Search Slack for mentions
+const messages = await slack-searchMessages({
+  query: "from:@alice project alpha",
+  count: 10
+});
+
+// Check knowledge base for notes about Alice
+const notes = searchKnowledgeBase('alice');
+
+// Combine context for response
+const context = {
+  slackMessages: messages,
+  personalNotes: notes,
+};
+```
+
+## Best Practices
+
+### Always Show Drafts
+
+<Warning>
+Never send Slack messages without user confirmation. Always show the draft first.
+</Warning>
+
+```typescript
+// ❌ Bad: Sending without approval
+await slack-sendMessage({ ... });
+
+// ✅ Good: Show draft first
+console.log('I\'ll send: "Hello team!"');
+// Wait for user approval...
+await slack-sendMessage({ ... });
+```
+
+### Summarize, Don't Dump
+
+```typescript
+// ❌ Bad: Dumping all messages
+const history = await slack-getChannelHistory({ channel, limit: 100 });
+return history; // Overwhelming
+
+// ✅ Good: Summarize key points
+const history = await slack-getChannelHistory({ channel, limit: 20 });
+const summary = extractKeyPoints(history);
+return `Recent discussion covered: ${summary}`;
+```
+
+### Use Search for Speed
+
+```typescript
+// ❌ Slow: List all DMs then filter
+const dms = await slack-getDirectMessages({ limit: 100 });
+const aliceDm = dms.find(dm => dm.user === aliceId);
+const history = await slack-getChannelHistory({ channel: aliceDm.id });
+
+// ✅ Fast: Search directly
+const messages = await slack-searchMessages({
+  query: "in:@alice",
+  count: 10
+});
+```
+
+## Error Handling
+
+If a Slack operation fails:
+
+1. **Verify tool slug** - Try `slack-listAvailableTools` to get the correct slug
+2. **Check connection** - Use `slack-checkConnection` to verify auth
+3. **Inform the user** - Provide specific error messages
+
+```typescript
+try {
+  await slack-sendMessage({ ... });
+} catch (error) {
+  // Check if still connected
+  const connected = await slack-checkConnection({});
+  
+  if (!connected) {
+    return "Slack is not connected. Please reconnect from settings.";
+  }
+  
+  return `Failed to send message: ${error.message}`;
+}
+```
+
+## Configuration
+
+The Slack skill is defined in the core package:
+
+```typescript
+// apps/x/packages/core/src/application/assistant/skills/slack/skill.ts
+
+const skill = String.raw`
+# Slack Integration Skill
+
+You can interact with Slack to help users communicate with their team.
+
+## Prerequisites
+Before using Slack tools, ALWAYS check if Slack is connected:
+\`\`\`
+slack-checkConnection({})
+\`\`\`
+
+// ... tool definitions ...
+`;
+
+export default skill;
+```
+
+## Tool Catalog
+
+The full catalog is available in:
+
+```typescript
+// apps/x/packages/core/src/application/assistant/skills/slack/tool-catalog.ts
+
+export const slackToolCatalog: SlackToolDefinition[] = [
+  { 
+    name: "Send Message",
+    slug: "SLACK_SEND_MESSAGE",
+    description: "Posts a message to a channel, DM, or group."
+  },
+  // ... 112 more tools
+];
+```
+
+## Privacy & Security
+
+- **OAuth Authentication**: Secure token-based auth via Composio
+- **Scoped Access**: Only accesses what the user authorizes
+- **No Storage**: Messages are not stored by Rowboat
+- **Read-Only by Default**: Most operations are read-only
+
+## Related Integrations
+
+- [MCP](/integrations/mcp) - Model Context Protocol for custom tools
+- [Gmail](/integrations/gmail) - Email integration

@@ -1,0 +1,131 @@
+---
+title: 'Platform Overview'
+description: 'Learn about the Rowboat platform architecture and its key components'
+icon: 'compass'
+---
+
+## What is Rowboat?
+
+Rowboat is an **open-source AI coworker** that turns your work into a knowledge graph and acts on it. Unlike traditional AI assistants that reconstruct context on demand, Rowboat maintains long-lived knowledge that accumulates over time.
+
+<CardGroup cols={2}>
+  <Card title="Local-First Design" icon="hard-drive">
+    All data stored locally as plain Markdown with no proprietary formats or hosted lock-in
+  </Card>
+  <Card title="Knowledge Graph" icon="diagram-project">
+    Builds an Obsidian-compatible vault with backlinks for transparent working memory
+  </Card>
+  <Card title="Multiple Interfaces" icon="window-restore">
+    Desktop app, CLI, Python SDK, and web platform for flexible workflows
+  </Card>
+  <Card title="Extensible" icon="puzzle-piece">
+    Supports MCP (Model Context Protocol) for connecting external tools and services
+  </Card>
+</CardGroup>
+
+## Key Capabilities
+
+<Accordion title="Memory & Context">
+  Rowboat connects to your email and meeting notes, building a knowledge graph that:
+  - Remembers important context you don't want to re-explain (people, projects, decisions)
+  - Understands what's relevant right now (before meetings, during email replies)
+  - Accumulates knowledge over time with explicit, inspectable relationships
+  - Stores everything as editable Markdown files on your machine
+</Accordion>
+
+<Accordion title="AI-Powered Actions">
+  Help you get work done by:
+  - Generating meeting prep from past decisions and open questions
+  - Drafting emails grounded in history and commitments
+  - Creating docs and PDF slide decks from your ongoing context
+  - Tracking follow-ups, decisions, and action items automatically
+</Accordion>
+
+<Accordion title="Background Agents">
+  Spin up background agents for repeatable work:
+  - Draft email replies in the background using your context
+  - Generate daily voice notes with agenda and priorities
+  - Create recurring project updates from latest emails/notes
+  - Keep your knowledge graph up to date as new information comes in
+</Accordion>
+
+<Accordion title="Bring Your Own Model">
+  Works with the model setup you prefer:
+  - **Local models** via Ollama or LM Studio
+  - **Hosted models** with your own API keys (OpenAI, Anthropic, Google, OpenRouter)
+  - Swap models anytime - your data stays in your local Markdown vault
+</Accordion>
+
+## Monorepo Structure
+
+Rowboat is organized as a monorepo containing multiple applications and SDKs:
+
+```
+rowboat/
+├── apps/
+│   ├── x/                 # Electron desktop app
+│   ├── rowboat/           # Next.js web dashboard
+│   ├── rowboatx/          # Next.js frontend
+│   ├── cli/               # CLI tool
+│   ├── python-sdk/        # Python SDK
+│   └── docs/              # Documentation site
+├── CLAUDE.md              # AI coding agent context
+└── README.md              # User-facing readme
+```
+
+<Info>
+  Each application can be run independently, but they all work together to provide a unified experience for managing your knowledge graph and AI workflows.
+</Info>
+
+## Integrations
+
+Rowboat builds memory from the work you already do:
+
+- **Gmail** - Email history and threads
+- **Google Calendar** - Meeting schedules
+- **Google Drive** - Document access
+- **Granola** - Meeting notes
+- **Fireflies** - Meeting transcriptions
+
+### Optional Services
+
+- **Deepgram** - Voice note transcription
+- **Brave Search** - Web search capabilities
+- **Exa** - Research search
+- **MCP Tools** - Extend with Twitter/X, ElevenLabs, Slack, Linear, Jira, GitHub, and more
+
+## What Makes Rowboat Different?
+
+Most AI tools search transcripts or documents on demand. Rowboat is different:
+
+<CardGroup cols={2}>
+  <Card title="Context Accumulates">
+    Knowledge builds over time instead of starting cold every time
+  </Card>
+  <Card title="Relationships are Explicit">
+    Connections between concepts are visible and inspectable
+  </Card>
+  <Card title="Human Editable">
+    Notes are stored as Markdown, not hidden inside a model
+  </Card>
+  <Card title="On Your Machine">
+    Everything lives locally with no cloud dependencies
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/platform/architecture">
+    Dive into the technical architecture and component design
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get started with Rowboat in minutes
+  </Card>
+  <Card title="Development" icon="code" href="/development">
+    Learn how to contribute to the platform
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Explore the API documentation
+  </Card>
+</CardGroup>

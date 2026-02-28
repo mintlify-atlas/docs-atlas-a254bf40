@@ -1,0 +1,369 @@
+---
+title: 'Background Agents'
+description: 'Automated workflows that run continuously'
+icon: 'robot'
+---
+
+Rowboat includes background services that continuously monitor your data sources and maintain your knowledge graph. These agents work autonomously to keep your information up-to-date without manual intervention.
+
+## Service Architecture
+
+Rowboat runs multiple independent services, each responsible for a specific data source or workflow:
+
+<CardGroup cols={2}>
+  <Card title="Gmail Sync" icon="envelope">
+    Monitors your Gmail inbox for new threads and syncs them to markdown files
+    
+    **Interval:** Every 5 minutes
+  </Card>
+  
+  <Card title="Fireflies Sync" icon="microphone">
+    Pulls meeting transcripts from Fireflies and saves them locally
+    
+    **Interval:** Every 5 minutes
+  </Card>
+  
+  <Card title="Granola Sync" icon="note-sticky">
+    Syncs meeting notes from Granola
+    
+    **Interval:** Every 5 minutes
+  </Card>
+  
+  <Card title="Knowledge Graph Builder" icon="diagram-project">
+    Processes all synced content to extract entities and update your knowledge base
+    
+    **Interval:** Every 30 seconds
+  </Card>
+</CardGroup>
+
+## How Services Work
+
+### 1. Data Source Services
+
+Each data source (Gmail, Fireflies, Granola) runs as an independent service:
+
+```typescript
+export async function init() {
+  console.log("Starting Gmail Sync...");
+  console.log(`Will sync every ${SYNC_INTERVAL_MS / 1000} seconds.`);
+
+  while (true) {
+    try {
+      const hasCredentials = await checkCredentials();
+      
+      if (!hasCredentials) {
+        console.log("OAuth credentials not available. Sleeping...");
+      } else {
+        await performSync();
+      }
+    } catch (error) {
+      console.error("Error in main loop:", error);
+    }
+
+    await sleep(SYNC_INTERVAL_MS);
+  }
+}
+```
+
+<Accordion title="Sync Process Details">
+**Gmail Sync Flow:**
+
+<Steps>
+  <Step title="Check for changes">
+    Uses Gmail History API with stored historyId to detect new messages efficiently
+  </Step>
+  <Step title="Fetch thread details">
+    For each new thread, fetches full message content including attachments
+  </Step>
+  <Step title="Convert to markdown">
+    Converts HTML emails to clean markdown format
+  </Step>
+  <Step title="Save locally">
+    Writes thread to `~/.rowboat/gmail_sync/{threadId}.md`
+  </Step>
+  <Step title="Update state">
+    Saves new historyId for next sync
+  </Step>
+</Steps>
+
+**Incremental vs Full Sync:**
+
+- **First run:** Full sync of last 30 days
+- **Subsequent runs:** Incremental sync using Gmail History API
+- **Fallback:** If historyId expires (404), falls back to full sync
+</Accordion>
+
+### 2. Knowledge Graph Builder
+
+The graph builder service monitors all source folders:
+
+```typescript
+const SOURCE_FOLDERS = [
+  'gmail_sync',
+  'fireflies_transcripts',
+  'granola_notes',
+];
+
+export async function init() {
+  console.log('[GraphBuilder] Starting Knowledge Graph Builder Service...');
+  console.log(`[GraphBuilder] Monitoring folders: ${SOURCE_FOLDERS.join(', ')}`);
+  
+  // Initial run
+  await processAllSources();
+  
+  // Periodic processing
+  while (true) {
+    await sleep(SYNC_INTERVAL_MS);
+    await processAllSources();
+  }
+}
+```
+
+<Info>
+The graph builder checks for new files every 30 seconds, processes them in batches, and updates your knowledge base incrementally.
+</Info>
+
+## Service Logging
+
+All services log their activity to a central log file for debugging and monitoring:
+
+```typescript
+const run = await serviceLogger.startRun({
+  service: 'gmail',
+  message: 'Syncing Gmail',
+  trigger: 'timer',
+});
+
+await serviceLogger.log({
+  type: 'changes_identified',
+  service: run.service,
+  runId: run.runId,
+  level: 'info',
+  message: `Found ${threadIds.length} threads to sync`,
+  counts: { threads: threadIds.length },
+});
+
+await serviceLogger.log({
+  type: 'run_complete',
+  service: run.service,
+  runId: run.runId,
+  level: 'info',
+  message: `Gmail sync complete: ${threadIds.length} threads`,
+  durationMs: Date.now() - run.startedAt,
+  outcome: 'ok',
+  summary: { threads: threadIds.length },
+});
+```
+
+**Logs are stored at:** `~/.rowboat/logs/services.jsonl`
+
+<Accordion title="Log Format">
+```json
+{
+  "type": "run_start",
+  "service": "gmail",
+  "runId": "gmail_1234567890",
+  "level": "info",
+  "message": "Syncing Gmail",
+  "trigger": "timer",
+  "ts": "2026-02-28T10:30:00.000Z"
+}
+
+{
+  "type": "changes_identified",
+  "service": "gmail",
+  "runId": "gmail_1234567890",
+  "level": "info",
+  "message": "Found 5 threads to sync",
+  "counts": { "threads": 5 },
+  "items": ["thread1.md", "thread2.md", "thread3.md", "thread4.md", "thread5.md"],
+  "ts": "2026-02-28T10:30:15.000Z"
+}
+
+{
+  "type": "run_complete",
+  "service": "gmail",
+  "runId": "gmail_1234567890",
+  "level": "info",
+  "message": "Gmail sync complete: 5 threads",
+  "durationMs": 12340,
+  "outcome": "ok",
+  "summary": { "threads": 5 },
+  "ts": "2026-02-28T10:30:27.340Z"
+}
+```
+
+**Log rotation:** Files rotate after 10MB to `services.{timestamp}.jsonl`
+</Accordion>
+
+## Agent Runtime
+
+The agent runtime handles executing AI workflows for note creation:
+
+### Processing Batches
+
+When new files need processing:
+
+<Steps>
+  <Step title="Build knowledge index">
+    Scans existing notes to build in-memory index of all entities
+  </Step>
+  <Step title="Create agent run">
+    Spawns a new agent instance with the `note_creation` agent
+  </Step>
+  <Step title="Build context">
+    Prepares a message with:
+    - Knowledge base index
+    - Batch of files to process
+    - Instructions for entity extraction
+  </Step>
+  <Step title="Execute agent">
+    Agent reads files, extracts entities, creates/updates notes
+  </Step>
+  <Step title="Track changes">
+    Monitors which notes were created or modified
+  </Step>
+  <Step title="Update state">
+    Marks files as processed and commits changes to git
+  </Step>
+</Steps>
+
+### Agent Configuration
+
+Agents are configured using markdown files with YAML frontmatter:
+
+```markdown
+---
+model: claude-3-5-sonnet-20241022
+tools:
+  workspace-readFile:
+    type: builtin
+    name: readFile
+  workspace-writeFile:
+    type: builtin
+    name: writeFile
+  workspace-edit:
+    type: builtin
+    name: edit
+---
+
+# Agent Instructions
+
+You are a note creation agent...
+```
+
+The runtime loads agents dynamically:
+
+```typescript
+export async function loadAgent(id: string): Promise<Agent> {
+  if (id === 'note_creation') {
+    const strictness = getNoteCreationStrictness();
+    let raw = '';
+    switch (strictness) {
+      case 'medium': raw = noteCreationMediumRaw; break;
+      case 'low': raw = noteCreationLowRaw; break;
+      case 'high': raw = noteCreationHighRaw; break;
+    }
+    // Parse frontmatter and return agent config
+  }
+  // Load from ~/.rowboat/agents/ directory
+}
+```
+
+<Note>
+The note creation agent has three variants (high/medium/low) based on your configured strictness level.
+</Note>
+
+## Error Handling
+
+Services include robust error handling:
+
+### Automatic Retry
+
+If a sync fails, the service:
+1. Logs the error
+2. Continues to the next scheduled run
+3. Will retry on the next iteration
+
+### Partial Progress
+
+The knowledge graph builder saves progress after each batch:
+
+```typescript
+for (let i = 0; i < contentFiles.length; i += BATCH_SIZE) {
+  const batch = contentFiles.slice(i, i + BATCH_SIZE);
+  
+  try {
+    await createNotesFromBatch(batch, batchNumber, indexForPrompt);
+    
+    // Mark files as processed
+    for (const file of batch) {
+      markFileAsProcessed(file.path, state);
+    }
+    
+    // Save state after successful batch
+    saveState(state);
+  } catch (error) {
+    console.error(`Error processing batch ${batchNumber}:`, error);
+    // Continue with next batch
+  }
+}
+```
+
+This ensures that if processing fails mid-way, already-processed files won't be repeated.
+
+### OAuth Expiration
+
+If OAuth credentials expire (401 error):
+
+```typescript
+if (error.response?.status === 401) {
+  console.log("401 Unauthorized, clearing cache");
+  GoogleClientFactory.clearCache();
+}
+```
+
+The service clears cached credentials and prompts for re-authentication on next run.
+
+## Manual Triggers
+
+You can trigger syncs manually without waiting for the scheduled interval:
+
+```typescript
+import { triggerSync } from './sync_gmail.js';
+
+triggerSync(); // Wakes up the sync service immediately
+```
+
+This uses an interruptible sleep pattern:
+
+```typescript
+function interruptibleSleep(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => {
+      wakeResolve = null;
+      resolve();
+    }, ms);
+    wakeResolve = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+  });
+}
+
+export function triggerSync(): void {
+  if (wakeResolve) {
+    wakeResolve();
+    wakeResolve = null;
+  }
+}
+```
+
+## Source Code Reference
+
+Key implementation files:
+
+- `apps/x/packages/core/src/knowledge/build_graph.ts:522-657` - Main graph builder service
+- `apps/x/packages/core/src/knowledge/sync_gmail.ts:443-467` - Gmail sync service
+- `apps/x/packages/core/src/agents/runtime.ts:36-148` - Agent runtime
+- `apps/x/packages/core/src/services/service_logger.ts` - Service logging infrastructure

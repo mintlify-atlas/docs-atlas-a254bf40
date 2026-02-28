@@ -1,0 +1,106 @@
+---
+title: CLI Overview
+description: Introduction to the Rowboat CLI tool for managing AI agents and workflows
+---
+
+Rowboat CLI (`rowboatx`) is a command-line tool for building, running, and managing AI agents and workflows. It provides a local-first approach to AI automation with support for multiple LLM providers and Model Context Protocol (MCP) servers.
+
+## Key Features
+
+- **Agent Runtime**: Run AI agents locally with interactive or non-interactive modes
+- **Workflow Management**: Import, export, and share workflow configurations
+- **MCP Integration**: Connect to Model Context Protocol servers for extended capabilities
+- **Multi-Provider Support**: Works with OpenAI, Anthropic, Google, Ollama, and more
+- **Interactive UI**: Optional terminal-based dashboard for managing runs
+- **Local Configuration**: All data stored in `~/.rowboat` directory
+
+## Quick Start
+
+<Steps>
+  <Step title="Install the CLI">
+    Install rowboatx globally via npm:
+    
+    ```bash
+    npm install -g @rowboatlabs/rowboatx
+    ```
+  </Step>
+
+  <Step title="Configure your model">
+    Set up your preferred LLM provider:
+    
+    ```bash
+    rowboatx model-config
+    ```
+    
+    This interactive wizard will guide you through selecting a provider (OpenAI, Anthropic, Google, etc.) and configuring API keys.
+  </Step>
+
+  <Step title="Run your first agent">
+    Start the default copilot agent:
+    
+    ```bash
+    rowboatx
+    ```
+    
+    Or specify a custom agent:
+    
+    ```bash
+    rowboatx --agent my-agent
+    ```
+  </Step>
+</Steps>
+
+## Architecture
+
+### Configuration Directory
+
+All Rowboat CLI data is stored in `~/.rowboat/`:
+
+```
+~/.rowboat/
+├── agents/          # Agent definitions (JSON)
+├── config/
+│   ├── models.json  # LLM provider configuration
+│   └── mcp.json     # MCP server definitions
+└── runs/            # Run logs (JSONL)
+```
+
+### Core Components
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot">
+    JSON-based agent definitions with instructions, tools, and workflows
+  </Card>
+  
+  <Card title="MCP Servers" icon="plug">
+    External tool providers following the Model Context Protocol
+  </Card>
+  
+  <Card title="Run Engine" icon="play">
+    Execute agents with state management and event streaming
+  </Card>
+  
+  <Card title="API Server" icon="server">
+    Optional HTTP server for programmatic access
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+- **Development Automation**: Create agents that help with coding tasks
+- **Data Processing**: Build workflows for ETL and data transformation
+- **Content Generation**: Automate writing and content creation tasks
+- **Integration Testing**: Run agents in CI/CD pipelines with `--no-interactive` mode
+- **Personal Assistant**: Local AI assistant with access to your tools and data
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/platform/cli/installation">
+    Detailed installation and setup instructions
+  </Card>
+  
+  <Card title="Commands" icon="terminal" href="/platform/cli/commands">
+    Complete command reference
+  </Card>
+</CardGroup>

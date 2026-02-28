@@ -1,0 +1,610 @@
+---
+title: Background Agents
+description: Autonomous agent execution on schedules for unattended workflows
+---
+
+Background agents run autonomously on schedules without user interaction, enabling automated workflows like daily digests, data sync, and system monitoring.
+
+## Overview
+
+Background agents are defined as Markdown files in the `agents/` directory and scheduled via `~/.rowboat/config/agent-schedule.json`. The background runner polls every minute to check for agents that need to run.
+
+<Info>
+**Runner Implementation**: `apps/x/packages/core/src/agent-schedule/runner.ts:1`
+
+The runner executes as a background service, managing schedules, timeouts, and state persistence.
+</Info>
+
+## Schedule Configuration
+
+### Configuration File
+
+Schedules are defined in `~/.rowboat/config/agent-schedule.json`:
+
+```json
+{
+  "agents": {
+    "agent_name": {
+      "schedule": { /* schedule definition */ },
+      "enabled": true,
+      "description": "What this agent does",
+      "startingMessage": "Initial message to agent"
+    }
+  }
+}
+```
+
+### Schedule Types
+
+<Accordion title="Cron Schedule">
+**Runs at exact times defined by cron expression**
+
+```json
+{
+  "schedule": {
+    "type": "cron",
+    "expression": "0 8 * * *"
+  },
+  "enabled": true
+}
+```
+
+**Common expressions:**
+- `*/5 * * * *` - Every 5 minutes
+- `0 8 * * *` - Every day at 8am
+- `0 9 * * 1` - Every Monday at 9am
+- `0 0 1 * *` - First day of every month at midnight
+- `0 */2 * * *` - Every 2 hours
+- `30 14 * * 1-5` - Weekdays at 2:30pm
+
+**Next run calculation:**
+```typescript
+const interval = CronExpressionParser.parse(schedule.expression, {
+  currentDate: now
+});
+return toLocalISOString(interval.next().toDate());
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:62`
+</Accordion>
+
+<Accordion title="Window Schedule">
+**Runs once during a time window (randomized)**
+
+```json
+{
+  "schedule": {
+    "type": "window",
+    "cron": "0 0 * * *",
+    "startTime": "08:00",
+    "endTime": "10:00"
+  },
+  "enabled": true
+}
+```
+
+The agent runs once at a random time within the window. Use this for flexible timing ("sometime in the morning" rather than "exactly at 8am").
+
+**Next run calculation:**
+```typescript
+// Parse base cron for date
+const interval = CronExpressionParser.parse(schedule.cron);
+const nextDate = interval.next().toDate();
+
+// Pick random time in window
+const [startHour, startMin] = schedule.startTime.split(":").map(Number);
+const [endHour, endMin] = schedule.endTime.split(":").map(Number);
+const startMinutes = startHour * 60 + startMin;
+const endMinutes = endHour * 60 + endMin;
+const randomMinutes = startMinutes + 
+  Math.floor(Math.random() * (endMinutes - startMinutes));
+
+nextDate.setHours(
+  Math.floor(randomMinutes / 60),
+  randomMinutes % 60,
+  0, 0
+);
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:72`
+</Accordion>
+
+<Accordion title="Once Schedule">
+**Runs exactly once at a specific time**
+
+```json
+{
+  "schedule": {
+    "type": "once",
+    "runAt": "2024-02-05T10:30:00"
+  },
+  "enabled": true
+}
+```
+
+Use for one-time tasks like migrations or setup scripts. The `runAt` time is in **local time** (no Z suffix).
+
+**Execution check:**
+```typescript
+if (entry.schedule.type === "once") {
+  const runAt = new Date(entry.schedule.runAt);
+  return now >= runAt && state?.status !== "triggered";
+}
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:128`
+</Accordion>
+
+### Starting Message
+
+Optional message sent to the agent on startup:
+
+```json
+{
+  "startingMessage": "Summarize my emails from the last 24 hours"
+}
+```
+
+Defaults to `"go"` if not specified.
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:13`
+
+### Description
+
+Optional description displayed in the UI:
+
+```json
+{
+  "description": "Daily email and calendar summary"
+}
+```
+
+## Schedule State
+
+<Info>
+**IMPORTANT**: Do NOT manually edit `agent-schedule-state.json` - it is managed automatically by the runner.
+</Info>
+
+The runner tracks execution state in `~/.rowboat/config/agent-schedule-state.json`:
+
+```json
+{
+  "agents": {
+    "agent_name": {
+      "status": "finished",
+      "lastRunAt": "2024-02-05T08:00:00",
+      "nextRunAt": "2024-02-06T08:00:00",
+      "startedAt": null,
+      "lastError": null,
+      "runCount": 42
+    }
+  }
+}
+```
+
+### State Fields
+
+| Field | Description |
+|-------|-------------|
+| `status` | `scheduled`, `running`, `finished`, `failed`, `triggered` |
+| `lastRunAt` | ISO timestamp of last execution |
+| `nextRunAt` | ISO timestamp of next scheduled execution |
+| `startedAt` | ISO timestamp when current run started (null if not running) |
+| `lastError` | Error message from last failed run (null if successful) |
+| `runCount` | Total number of executions |
+
+## Runner Implementation
+
+### Main Loop
+
+The runner executes every minute:
+
+```typescript
+export async function init(): Promise<void> {
+  console.log("[AgentRunner] Starting background agent runner service");
+  
+  while (true) {
+    try {
+      await pollAndRun();
+    } catch (error) {
+      console.error("[AgentRunner] Error in main loop:", error);
+    }
+    
+    await interruptibleSleep(POLL_INTERVAL_MS); // 60 seconds
+  }
+}
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:323`
+
+### Interruptible Sleep
+
+Allows immediate wake on trigger:
+
+```typescript
+let wakeResolve: (() => void) | null = null;
+
+export function triggerRun(): void {
+  if (wakeResolve) {
+    console.log("[AgentRunner] Triggered - waking up immediately");
+    wakeResolve();
+    wakeResolve = null;
+  }
+}
+
+function interruptibleSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      wakeResolve = null;
+      resolve();
+    }, ms);
+    wakeResolve = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+  });
+}
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:28`
+
+### Poll and Run
+
+<CodeGroup>
+```typescript Check Timeouts
+// Check for timed-out agents first
+async function checkForTimeouts(
+  state: AgentScheduleState,
+  config: AgentScheduleConfig,
+  stateRepo: IAgentScheduleStateRepo
+): Promise<void> {
+  const now = new Date();
+  
+  for (const [agentName, agentState] of Object.entries(state.agents)) {
+    if (agentState.status === "running" && agentState.startedAt) {
+      const startedAt = new Date(agentState.startedAt);
+      const elapsed = now.getTime() - startedAt.getTime();
+      
+      if (elapsed > TIMEOUT_MS) { // 30 minutes
+        const entry = config.agents[agentName];
+        const nextRunAt = entry ? calculateNextRunAt(entry.schedule) : null;
+        
+        await stateRepo.updateAgentState(agentName, {
+          status: "failed",
+          startedAt: null,
+          lastRunAt: toLocalISOString(now),
+          nextRunAt: nextRunAt,
+          lastError: `Timed out after ${Math.round(elapsed / 1000 / 60)} minutes`,
+          runCount: (agentState.runCount ?? 0) + 1
+        });
+      }
+    }
+  }
+}
+```
+
+```typescript Check Schedules
+// Check each agent for execution
+for (const [agentName, entry] of Object.entries(config.agents)) {
+  const agentState = state.agents[agentName] ?? null;
+  
+  // Initialize state if needed
+  if (!agentState && entry.schedule.type !== "once") {
+    const nextRunAt = calculateNextRunAt(entry.schedule);
+    if (nextRunAt) {
+      await stateRepo.updateAgentState(agentName, {
+        status: "scheduled",
+        startedAt: null,
+        lastRunAt: null,
+        nextRunAt: nextRunAt,
+        lastError: null,
+        runCount: 0
+      });
+    }
+    continue; // Don't run immediately on first initialization
+  }
+  
+  // Check if should run now
+  if (shouldRunNow(entry, agentState)) {
+    // Run agent in background (don't await)
+    runAgent(
+      agentName,
+      entry,
+      stateRepo,
+      runsRepo,
+      agentRuntime,
+      idGenerator
+    ).catch((error) => {
+      console.error(`[AgentRunner] Unhandled error: ${error}`);
+    });
+  }
+}
+```
+
+```typescript Should Run Check
+function shouldRunNow(
+  entry: AgentScheduleEntry,
+  state: AgentScheduleStateEntry | null
+): boolean {
+  // Don't run if disabled
+  if (entry.enabled === false) return false;
+  
+  // Don't run if already running
+  if (state?.status === "running") return false;
+  
+  // Don't run once-schedules that are triggered
+  if (entry.schedule.type === "once" && 
+      state?.status === "triggered") {
+    return false;
+  }
+  
+  const now = new Date();
+  
+  // For once-schedules, check if time has passed
+  if (entry.schedule.type === "once") {
+    const runAt = new Date(entry.schedule.runAt);
+    return now >= runAt;
+  }
+  
+  // For cron/window, check nextRunAt
+  if (!state?.nextRunAt) return true; // Needs initialization
+  
+  const nextRunAt = new Date(state.nextRunAt);
+  return now >= nextRunAt;
+}
+```
+</CodeGroup>
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:258`
+
+### Run Agent
+
+```typescript
+async function runAgent(
+  agentName: string,
+  entry: AgentScheduleEntry,
+  stateRepo: IAgentScheduleStateRepo,
+  runsRepo: IRunsRepo,
+  agentRuntime: IAgentRuntime,
+  idGenerator: IMonotonicallyIncreasingIdGenerator
+): Promise<void> {
+  console.log(`[AgentRunner] Starting agent: ${agentName}`);
+  
+  const startedAt = toLocalISOString(new Date());
+  
+  // Update state to running
+  await stateRepo.updateAgentState(agentName, {
+    status: "running",
+    startedAt: startedAt
+  });
+  
+  try {
+    // Create run
+    const run = await runsRepo.create({ agentId: agentName });
+    
+    // Add starting message
+    const startingMessage = entry.startingMessage ?? "go";
+    await runsRepo.appendEvents(run.id, [{
+      runId: run.id,
+      type: "message",
+      messageId: await idGenerator.next(),
+      message: {
+        role: "user",
+        content: startingMessage
+      },
+      subflow: []
+    }]);
+    
+    // Trigger execution
+    await agentRuntime.trigger(run.id);
+    
+    // Calculate next run
+    const nextRunAt = calculateNextRunAt(entry.schedule);
+    
+    // Update state to finished
+    await stateRepo.updateAgentState(agentName, {
+      status: entry.schedule.type === "once" ? "triggered" : "finished",
+      startedAt: null,
+      lastRunAt: toLocalISOString(new Date()),
+      nextRunAt: nextRunAt,
+      lastError: null,
+      runCount: (currentState?.runCount ?? 0) + 1
+    });
+  } catch (error) {
+    console.error(`[AgentRunner] Error running agent ${agentName}:`, error);
+    
+    // Update state to failed
+    const nextRunAt = calculateNextRunAt(entry.schedule);
+    await stateRepo.updateAgentState(agentName, {
+      status: "failed",
+      startedAt: null,
+      lastRunAt: toLocalISOString(new Date()),
+      nextRunAt: nextRunAt,
+      lastError: error instanceof Error ? error.message : String(error),
+      runCount: (currentState?.runCount ?? 0) + 1
+    });
+  }
+}
+```
+
+Location: `apps/x/packages/core/src/agent-schedule/runner.ts:146`
+
+## Complete Example
+
+### Multi-Agent Workflow
+
+**Email reader agent** (`agents/email_reader.md`):
+
+```markdown
+---
+model: gpt-5.1
+tools:
+  read_file:
+    type: builtin
+    name: workspace-readFile
+  list_dir:
+    type: builtin
+    name: workspace-readdir
+---
+# Email Reader Agent
+
+Read emails from the gmail_sync folder and extract key information.
+Look for unread or recent emails and summarize the sender, subject, and key points.
+Don't ask for human input.
+```
+
+**Daily summary agent** (`agents/daily_summary.md`):
+
+```markdown
+---
+model: gpt-5.1
+tools:
+  email_reader:
+    type: agent
+    name: email_reader
+  write_file:
+    type: builtin
+    name: workspace-writeFile
+---
+# Daily Summary Agent
+
+1. Use the email_reader tool to get email summaries
+2. Create a consolidated daily digest
+3. Save the digest to ~/Desktop/daily_digest.md
+
+Don't ask for human input.
+```
+
+**Schedule configuration** (`~/.rowboat/config/agent-schedule.json`):
+
+```json
+{
+  "agents": {
+    "daily_summary": {
+      "schedule": {
+        "type": "cron",
+        "expression": "0 7 * * *"
+      },
+      "enabled": true,
+      "description": "Daily email summary",
+      "startingMessage": "Create my daily email digest"
+    }
+  }
+}
+```
+
+## Best Practices
+
+<Accordion title="Agent Design">
+**Single responsibility** - Each agent should do one thing well
+
+**Autonomous operation** - Add "Don't ask for human input" to instructions
+
+**Clear delegation** - Explicitly state when to call other agents
+
+**Data passing** - Make it clear what data to extract and pass between agents
+
+**Error handling** - Background agents should handle errors gracefully
+</Accordion>
+
+<Accordion title="Security">
+**Avoid executeCommand** - Don't attach `executeCommand` to background agents running unattended
+
+**Use specific tools** - Use `workspace-readFile`, `workspace-writeFile`, etc. instead
+
+**Validate inputs** - Check data before processing
+
+**File paths** - Ask users for output paths, then hardcode in instructions
+</Accordion>
+
+<Accordion title="Scheduling">
+**Choose appropriate schedule type:**
+- **Cron** - Predictable, exact timing
+- **Window** - Flexible timing ("sometime in the morning")
+- **Once** - One-time tasks, migrations
+
+**Consider frequency:**
+- Too frequent = wasted resources
+- Too infrequent = stale data
+
+**Timezone awareness:**
+- All times are in local machine timezone
+- Document expected timezone in descriptions
+</Accordion>
+
+## Troubleshooting
+
+<CodeGroup>
+```json Agent Not Running
+// Check if enabled
+{
+  "agents": {
+    "my_agent": {
+      "enabled": false  // ← Problem
+    }
+  }
+}
+
+// Check if agent file exists
+// agents/my_agent.md must exist
+
+// Check state for errors
+{
+  "agents": {
+    "my_agent": {
+      "status": "failed",
+      "lastError": "Agent file not found"  // ← Check this
+    }
+  }
+}
+```
+
+```json Wrong Schedule
+// Cron expression errors
+{
+  "schedule": {
+    "type": "cron",
+    "expression": "0 8 * * *"  // Every day at 8am
+    // Use https://crontab.guru/ to test
+  }
+}
+
+// Window schedule errors
+{
+  "schedule": {
+    "type": "window",
+    "cron": "0 0 * * *",  // Base cron for date
+    "startTime": "08:00",
+    "endTime": "10:00"    // Must be after startTime
+  }
+}
+```
+
+```json Timeout Issues
+// Agent running too long
+{
+  "agents": {
+    "my_agent": {
+      "status": "failed",
+      "lastError": "Timed out after 30 minutes"
+    }
+  }
+}
+
+// Solutions:
+// 1. Optimize agent to run faster
+// 2. Break into smaller agents
+// 3. Remove blocking operations
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Runtime Architecture" icon="microchip" href="/platform/agents/runtime">
+    Understand how agents execute
+  </Card>
+  <Card title="Skills" icon="book" href="/platform/agents/skills">
+    Explore available skills
+  </Card>
+</CardGroup>

@@ -1,0 +1,160 @@
+---
+title: 'Installation'
+description: 'Install the Rowboat Python SDK'
+---
+
+## Prerequisites
+
+The Rowboat Python SDK requires Python 3.7 or higher.
+
+## Install via pip
+
+Install the SDK using pip:
+
+```bash
+pip install rowboat
+```
+
+## Dependencies
+
+The SDK automatically installs the following dependencies:
+
+- `requests>=2.25.0` - HTTP client for API communication
+- `pydantic>=2.0.0` - Data validation and schema modeling
+
+## Verify Installation
+
+Verify the installation by importing the SDK:
+
+```python
+from rowboat.client import Client
+from rowboat.schema import UserMessage
+
+print("Rowboat SDK installed successfully!")
+```
+
+## Getting Your Credentials
+
+Before using the SDK, you'll need:
+
+<Steps>
+  <Step title="Create a Rowboat Account">
+    Sign up at [rowboat.dev](https://rowboat.dev) if you haven't already.
+  </Step>
+  
+  <Step title="Create a Project">
+    Navigate to your dashboard and create a new project. Note your **Project ID**.
+  </Step>
+  
+  <Step title="Generate an API Key">
+    In your project settings, generate a new API key. Keep this key secure!
+  </Step>
+  
+  <Step title="Configure Your Client">
+    Use your credentials to initialize the client:
+    
+    ```python
+    client = Client(
+        host="https://api.rowboat.dev",
+        projectId="your-project-id",
+        apiKey="your-api-key"
+    )
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables
+
+For security, store your credentials as environment variables:
+
+```bash .env
+ROWBOAT_HOST=https://api.rowboat.dev
+ROWBOAT_PROJECT_ID=your-project-id
+ROWBOAT_API_KEY=your-api-key
+```
+
+Then load them in your code:
+
+```python
+import os
+from rowboat.client import Client
+
+client = Client(
+    host=os.getenv("ROWBOAT_HOST"),
+    projectId=os.getenv("ROWBOAT_PROJECT_ID"),
+    apiKey=os.getenv("ROWBOAT_API_KEY")
+)
+```
+
+## Virtual Environments
+
+We recommend using a virtual environment to manage dependencies:
+
+<CodeGroup>
+```bash venv
+# Create virtual environment
+python -m venv venv
+
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
+
+# Install Rowboat
+pip install rowboat
+```
+
+```bash conda
+# Create conda environment
+conda create -n rowboat python=3.9
+
+# Activate environment
+conda activate rowboat
+
+# Install Rowboat
+pip install rowboat
+```
+</CodeGroup>
+
+## Upgrading
+
+To upgrade to the latest version:
+
+```bash
+pip install --upgrade rowboat
+```
+
+## Troubleshooting
+
+### Import Errors
+
+If you encounter import errors, ensure you're using Python 3.7 or higher:
+
+```bash
+python --version
+```
+
+### SSL Certificate Errors
+
+If you encounter SSL certificate errors, update your certificates:
+
+```bash
+pip install --upgrade certifi
+```
+
+### Behind a Proxy
+
+If you're behind a corporate proxy, configure pip:
+
+```bash
+pip install --proxy=http://proxy.server:port rowboat
+```
+
+## Next Steps
+
+Now that you have the SDK installed, learn how to use it:
+
+<Card title="Usage Guide" icon="code" href="/platform/python-sdk/usage">
+  Learn how to build AI agents with the SDK
+</Card>

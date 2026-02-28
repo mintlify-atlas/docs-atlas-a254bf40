@@ -1,0 +1,486 @@
+---
+title: Model Configuration
+description: Configure AI models for the Rowboat desktop app
+---
+
+Rowboat Desktop works with any AI provider - from hosted APIs like OpenAI and Anthropic to fully local models via Ollama. This guide covers how to configure your model setup.
+
+## Configuration File
+
+Model settings are stored in:
+
+```
+~/.rowboat/config/models.json
+```
+
+**Structure:**
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-...",
+    "baseURL": "https://api.openai.com/v1",
+    "headers": {}
+  },
+  "model": "gpt-5.2",
+  "knowledgeGraphModel": "gpt-4.1"
+}
+```
+
+<Note>
+You can configure a separate model for knowledge graph operations. If `knowledgeGraphModel` is omitted, Rowboat uses the main `model` for all operations.
+</Note>
+
+## Configuring via UI
+
+The easiest way to configure models is through the Settings dialog:
+
+<Steps>
+  <Step title="Open Settings">
+    Click the settings icon in the sidebar or press `Cmd+,` (Mac) / `Ctrl+,` (Windows/Linux)
+  </Step>
+  
+  <Step title="Select Provider">
+    Choose from OpenAI, Anthropic, Google, Ollama, OpenRouter, or other providers
+  </Step>
+  
+  <Step title="Enter Credentials">
+    - **Cloud providers**: Enter your API key
+    - **Local providers**: Set the base URL (e.g., `http://localhost:11434` for Ollama)
+  </Step>
+  
+  <Step title="Choose Models">
+    - **Assistant model**: The main model for chat and tasks
+    - **Knowledge graph model**: (Optional) A different model for graph operations
+  </Step>
+  
+  <Step title="Test & Save">
+    Click "Test & Save" to verify the connection and save your configuration
+  </Step>
+</Steps>
+
+## Supported Providers
+
+### OpenAI
+
+Use GPT models from OpenAI.
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `openai`
+    
+    **Required:**
+    - `apiKey` - Your OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys)
+    
+    **Optional:**
+    - `baseURL` - Custom API endpoint (defaults to OpenAI's official endpoint)
+    - `headers` - Additional HTTP headers
+    
+    **Recommended models:**
+    - `gpt-5.2` - Most capable (if you have access)
+    - `gpt-4.1` - Excellent performance
+    - `gpt-4o-mini` - Fast and cost-effective
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "openai",
+        "apiKey": "sk-proj-..."
+      },
+      "model": "gpt-5.2",
+      "knowledgeGraphModel": "gpt-4.1"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Anthropic
+
+Use Claude models from Anthropic.
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `anthropic`
+    
+    **Required:**
+    - `apiKey` - Your Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
+    
+    **Optional:**
+    - `baseURL` - Custom API endpoint
+    - `headers` - Additional HTTP headers
+    
+    **Recommended models:**
+    - `claude-opus-4-6-20260202` - Most capable Claude model
+    - `claude-sonnet-4-6-20260202` - Balanced performance
+    - `claude-3-5-sonnet-20241022` - Fast and cost-effective
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "anthropic",
+        "apiKey": "sk-ant-..."
+      },
+      "model": "claude-opus-4-6-20260202"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Google AI Studio
+
+Use Gemini models from Google.
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `google`
+    
+    **Required:**
+    - `apiKey` - Your Google AI API key from [aistudio.google.com](https://aistudio.google.com/apikey)
+    
+    **Optional:**
+    - `baseURL` - Custom API endpoint
+    - `headers` - Additional HTTP headers
+    
+    **Available models:**
+    - `gemini-2.0-flash-exp` - Latest experimental model
+    - `gemini-1.5-pro` - Production-ready
+    - `gemini-1.5-flash` - Fast and efficient
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "google",
+        "apiKey": "AIza..."
+      },
+      "model": "gemini-2.0-flash-exp"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Ollama (Local)
+
+Run models locally on your machine with Ollama.
+
+<Tabs>
+  <Tab title="Setup">
+    <Steps>
+      <Step title="Install Ollama">
+        Download from [ollama.ai](https://ollama.ai) and install on your system
+      </Step>
+      
+      <Step title="Pull a model">
+        ```bash
+        ollama pull llama3.3:70b
+        # or
+        ollama pull qwen2.5-coder:32b
+        ```
+      </Step>
+      
+      <Step title="Verify it's running">
+        ```bash
+        ollama list
+        ```
+      </Step>
+      
+      <Step title="Configure Rowboat">
+        Set provider to "Ollama (Local)" and enter the model name
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Configuration">
+    **Provider flavor:** `ollama`
+    
+    **Required:**
+    - `baseURL` - Ollama API endpoint (default: `http://localhost:11434`)
+    - `model` - The model name (e.g., `llama3.3:70b`)
+    
+    **Optional:**
+    - `headers` - Additional HTTP headers
+    
+    **Note:** API key is not required for Ollama
+    
+    **Recommended models:**
+    - `llama3.3:70b` - Highly capable open model
+    - `qwen2.5-coder:32b` - Excellent for code and technical tasks
+    - `mistral-nemo:latest` - Fast and efficient
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "ollama",
+        "baseURL": "http://localhost:11434"
+      },
+      "model": "llama3.3:70b"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+Ollama connection tests have a 60-second timeout (vs. 8 seconds for cloud providers) to accommodate model loading time.
+</Note>
+
+### OpenRouter
+
+Access multiple models with one API key via OpenRouter.
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `openrouter`
+    
+    **Required:**
+    - `apiKey` - Your OpenRouter API key from [openrouter.ai](https://openrouter.ai/keys)
+    
+    **Optional:**
+    - `baseURL` - Custom endpoint (defaults to OpenRouter's API)
+    - `headers` - Additional headers (e.g., for site identification)
+    
+    **Example models:**
+    - `openai/gpt-4-turbo`
+    - `anthropic/claude-3-opus`
+    - `google/gemini-pro-1.5`
+    - `meta-llama/llama-3.3-70b-instruct`
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "openrouter",
+        "apiKey": "sk-or-v1-..."
+      },
+      "model": "anthropic/claude-3-opus"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Vercel AI Gateway
+
+Route requests through Vercel's AI Gateway for observability and caching.
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `aigateway`
+    
+    **Required:**
+    - `apiKey` - Your provider's API key (OpenAI, Anthropic, etc.)
+    - `baseURL` - Your AI Gateway endpoint from [vercel.com/dashboard](https://vercel.com/dashboard)
+    
+    **Optional:**
+    - `headers` - Additional HTTP headers
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "aigateway",
+        "apiKey": "sk-...",
+        "baseURL": "https://gateway.vercel.ai/v1/..."
+      },
+      "model": "gpt-4"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### OpenAI-Compatible APIs
+
+Use any OpenAI-compatible API (LM Studio, LocalAI, etc.).
+
+<Tabs>
+  <Tab title="Configuration">
+    **Provider flavor:** `openai-compatible`
+    
+    **Required:**
+    - `baseURL` - Your API endpoint (e.g., `http://localhost:1234/v1` for LM Studio)
+    - `model` - The model name to use
+    
+    **Optional:**
+    - `apiKey` - API key if required by your server
+    - `headers` - Additional HTTP headers
+  </Tab>
+  
+  <Tab title="Example Config">
+    ```json
+    {
+      "provider": {
+        "flavor": "openai-compatible",
+        "baseURL": "http://localhost:1234/v1",
+        "apiKey": "not-needed"
+      },
+      "model": "local-model"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Advanced Configuration
+
+### Custom Headers
+
+Add custom HTTP headers to requests:
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-...",
+    "headers": {
+      "X-Custom-Header": "value",
+      "Organization": "org-..."
+    }
+  },
+  "model": "gpt-4"
+}
+```
+
+### Separate Knowledge Graph Model
+
+Use a different model for knowledge graph operations:
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-..."
+  },
+  "model": "gpt-5.2",
+  "knowledgeGraphModel": "gpt-4o-mini"
+}
+```
+
+**Why use a separate model?**
+
+- **Cost optimization** - Use a cheaper model for graph operations
+- **Speed** - Use a faster model for background processing
+- **Quality** - Use a more capable model for chat, simpler one for extraction
+
+<Note>
+If `knowledgeGraphModel` is omitted or empty, Rowboat uses the main `model` for all operations.
+</Note>
+
+### Connection Timeout
+
+Rowboat tests model connections before saving:
+
+- **Cloud providers**: 8-second timeout
+- **Local providers** (Ollama, OpenAI-compatible): 60-second timeout
+
+This allows time for local models to load into memory on first request.
+
+## Models Catalog
+
+Rowboat caches a catalog of available models for OpenAI, Anthropic, and Google:
+
+```
+~/.rowboat/config/models.dev.json
+```
+
+This catalog powers the model dropdown in Settings. It's automatically fetched and cached when you open the Settings dialog.
+
+<Note>
+For local providers (Ollama, OpenAI-compatible), you'll type the model name manually since available models vary by installation.
+</Note>
+
+## Troubleshooting
+
+### Connection Test Fails
+
+<Steps>
+  <Step title="Verify API key">
+    Ensure your API key is valid and has not expired
+  </Step>
+  
+  <Step title="Check base URL">
+    For local providers, ensure the service is running:
+    ```bash
+    # Ollama
+    ollama list
+    
+    # LM Studio - check the server tab
+    ```
+  </Step>
+  
+  <Step title="Test manually">
+    ```bash
+    # OpenAI
+    curl https://api.openai.com/v1/models \
+      -H "Authorization: Bearer $OPENAI_API_KEY"
+    
+    # Ollama
+    curl http://localhost:11434/api/tags
+    ```
+  </Step>
+  
+  <Step title="Check firewall">
+    Ensure your firewall allows outbound connections (cloud) or localhost connections (local)
+  </Step>
+</Steps>
+
+### Model Not Found
+
+**For cloud providers:**
+- Verify the model name matches the provider's documentation
+- Check if you have access to that model (e.g., GPT-5 requires special access)
+
+**For Ollama:**
+
+```bash
+ollama list  # See available models
+ollama pull llama3.3:70b  # Download if needed
+```
+
+**For OpenAI-compatible:**
+- Check your server's available models endpoint
+- Ensure the model is loaded and ready
+
+### Knowledge Graph Model Not Working
+
+1. Test the model separately by setting it as the main `model`
+2. Check that it supports the same capabilities (function calling, etc.)
+3. Verify sufficient context window (knowledge graph operations can be token-heavy)
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start with defaults" icon="circle-check">
+    Use recommended models first (`gpt-5.2`, `claude-opus-4-6`, etc.)
+  </Card>
+  
+  <Card title="Test before saving" icon="flask">
+    Always use "Test & Save" to verify your configuration works
+  </Card>
+  
+  <Card title="Consider costs" icon="dollar-sign">
+    Use a cheaper model for knowledge graph if you process many emails
+  </Card>
+  
+  <Card title="Try local models" icon="server">
+    Ollama with llama3.3:70b is comparable to GPT-4 and completely private
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="sparkles" href="/desktop/features">
+    Learn what you can do with your configured models
+  </Card>
+  
+  <Card title="Understand Workspace" icon="folder" href="/desktop/workspace">
+    Explore the ~/.rowboat/ directory structure
+  </Card>
+</CardGroup>

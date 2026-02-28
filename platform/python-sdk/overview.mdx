@@ -1,0 +1,90 @@
+---
+title: 'Python SDK Overview'
+description: 'Build AI agents with the Rowboat Python SDK'
+---
+
+The Rowboat Python SDK provides a simple and powerful interface for building AI agents that can interact with users and execute tools. The SDK is designed around a stateless chat API that gives you full control over conversation management.
+
+## Key Features
+
+- **Stateless Architecture**: Full control over conversation state using conversation IDs
+- **Type-Safe Messages**: Pydantic-based message schemas for reliable data handling
+- **Tool Override Support**: Test agent behaviors with mock tool responses
+- **Simple API**: Minimal setup with intuitive method signatures
+- **Production-Ready**: Built on requests and Pydantic for reliability
+
+## Quick Start
+
+Get started with Rowboat in just a few lines of code:
+
+<CodeGroup>
+```python Basic Example
+from rowboat.client import Client
+from rowboat.schema import UserMessage
+
+# Initialize the client
+client = Client(
+    host="https://api.rowboat.dev",
+    projectId="your-project-id",
+    apiKey="your-api-key"
+)
+
+# Start a conversation
+result = client.run_turn(
+    messages=[
+        UserMessage(role='user', content="list my github repos")
+    ]
+)
+
+print(result.turn.output[-1].content)
+print("Conversation ID:", result.conversationId)
+```
+
+```python With Conversation Context
+# Continue the conversation
+result = client.run_turn(
+    messages=[
+        UserMessage(role='user', content="how many did you find?")
+    ],
+    conversationId=result.conversationId
+)
+
+print(result.turn.output[-1].content)
+```
+</CodeGroup>
+
+## Core Concepts
+
+### Stateless Chat API
+
+The SDK uses a stateless approach where you manage conversation context by passing a `conversationId` between turns. This gives you flexibility in how you store and retrieve conversation history.
+
+### Message Types
+
+Rowboat supports multiple message types for different conversation participants:
+
+- `UserMessage` - Messages from end users
+- `SystemMessage` - System instructions and context
+- `AssistantMessage` - Agent responses
+- `ToolMessage` - Tool execution results
+
+### Tool Overrides
+
+Test your agent's behavior without executing real tools by providing mock responses through the `mockTools` parameter.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/platform/python-sdk/installation">
+    Install the SDK via pip
+  </Card>
+  <Card title="Usage Guide" icon="code" href="/platform/python-sdk/usage">
+    Learn how to use the SDK effectively
+  </Card>
+  <Card title="API Reference" icon="book" href="/platform/python-sdk/api-reference">
+    Explore the complete API documentation
+  </Card>
+  <Card title="Examples" icon="flask" href="/examples">
+    View example implementations
+  </Card>
+</CardGroup>

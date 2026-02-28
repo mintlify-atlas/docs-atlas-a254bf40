@@ -1,0 +1,307 @@
+---
+title: Architecture Overview
+description: High-level architecture of Rowboat's Electron-based desktop application
+---
+
+Rowboat is an **Electron desktop application** built as a nested pnpm monorepo. The architecture separates concerns across three Electron processes (main, renderer, preload) and shared business logic packages.
+
+## Architecture Diagram
+
+```
+Rowboat Desktop App
+├── Main Process (Node.js)
+│   ├── IPC Handlers
+│   ├── Background Services
+│   └── Core Business Logic
+├── Renderer Process (Browser)
+│   ├── React UI (Vite)
+│   └── Sandboxed Environment
+└── Preload Scripts
+    └── Secure IPC Bridge
+```
+
+## Electron Process Architecture
+
+<Accordion title="Main Process - Node.js Backend">
+
+The **main process** (`apps/main/src/main.ts`) is the Node.js backend that:
+
+- Creates and manages browser windows
+- Handles all file system and OS operations
+- Runs background services (Gmail sync, calendar sync, knowledge graph processing)
+- Exposes IPC handlers for renderer communication
+- Manages OAuth flows and external integrations
+
+**Key Characteristics:**
+- Full Node.js access (fs, path, crypto, etc.)
+- Bundled with esbuild to single CommonJS file
+- No hot-reload in development (requires restart)
+- Entry: `apps/main/src/main.ts`
+- Output: `.package/dist/main.cjs`
+
+**Startup Sequence:**
+```typescript
+// apps/main/src/main.ts
+app.whenReady().then(() => {
+  registerAppProtocol();
+  createWindow();
+  setupIpcHandlers();
+  initBackgroundServices();
+});
+```
+
+</Accordion>
+
+<Accordion title="Renderer Process - React UI">
+
+The **renderer process** (`apps/renderer/src/main.tsx`) is the UI layer that:
+
+- Renders the React application
+- Runs in a sandboxed browser environment
+- Cannot directly access Node.js APIs
+- Communicates with main via IPC (preload bridge)
+
+**Key Characteristics:**
+- React 19 + Vite 7
+- TailwindCSS + Radix UI components
+- Hot-reload enabled in development
+- Sandboxed (no Node integration, context isolation enabled)
+- Entry: `apps/renderer/src/main.tsx`
+- Output: `apps/renderer/dist/`
+
+**Security Configuration:**
+```typescript
+webPreferences: {
+  nodeIntegration: false,      // No Node.js in renderer
+  contextIsolation: true,      // Isolate preload context
+  sandbox: true,               // Enable sandbox
+  preload: preloadPath,        // Secure bridge
+}
+```
+
+</Accordion>
+
+<Accordion title="Preload Scripts - Secure Bridge">
+
+The **preload scripts** (`apps/preload/src/preload.ts`) provide a secure bridge:
+
+- Run before renderer code loads
+- Have access to both Node.js and browser APIs
+- Expose safe IPC methods via `contextBridge`
+- Validate all requests/responses with Zod schemas
+
+**Key Characteristics:**
+- TypeScript with strict validation
+- Exposes only whitelisted IPC channels
+- No direct Node.js access from renderer
+- Entry: `apps/preload/src/preload.ts`
+- Output: `apps/preload/dist/preload.js`
+
+**IPC Bridge Example:**
+```typescript
+// Expose safe IPC API to renderer
+contextBridge.exposeInMainWorld('ipc', {
+  invoke: (channel, args) => {
+    validateRequest(channel, args);
+    return ipcRenderer.invoke(channel, args);
+  },
+  send: (channel, args) => {
+    validateRequest(channel, args);
+    ipcRenderer.send(channel, args);
+  },
+});
+```
+
+</Accordion>
+
+## Package Architecture
+
+<Info>
+Rowboat uses a **nested pnpm workspace** structure where the Electron app (`apps/x`) is itself a monorepo with shared packages.
+</Info>
+
+### Workspace Structure
+
+```
+apps/x/
+├── apps/
+│   ├── main/              # Main process
+│   ├── renderer/          # React UI
+│   └── preload/           # Preload scripts
+└── packages/
+    ├── shared/            # @x/shared - Types, validators
+    └── core/              # @x/core - Business logic
+```
+
+### Build Dependencies
+
+```
+shared (no deps)
+   ↓
+core (depends on shared)
+   ↓
+preload (depends on shared)
+   ↓
+main (depends on shared, core)
+renderer (depends on shared)
+```
+
+<Warning>
+The `npm run deps` command builds packages in order: **shared → core → preload**. Always run this after modifying shared packages.
+</Warning>
+
+### Package Responsibilities
+
+<Accordion title="@x/shared - Shared Types & Validators">
+
+**Purpose:** Type definitions, Zod schemas, and utilities shared across all packages.
+
+**Contents:**
+- IPC channel definitions and validators
+- Shared TypeScript types
+- Zod schemas for runtime validation
+- Common utilities
+
+**Location:** `apps/x/packages/shared/src/`
+
+**Usage:**
+```typescript
+import { ipc } from '@x/shared';
+import type { AgentConfig } from '@x/shared';
+```
+
+</Accordion>
+
+<Accordion title="@x/core - Business Logic">
+
+**Purpose:** Core business logic, AI integration, OAuth, and background services.
+
+**Contents:**
+- Knowledge graph processing
+- AI/LLM integration (Vercel AI SDK)
+- OAuth client implementations
+- Background sync services (Gmail, Calendar, Fireflies)
+- Configuration management
+- Agent runtime
+
+**Location:** `apps/x/packages/core/src/`
+
+**Key Modules:**
+- `knowledge/` - Knowledge graph and entity extraction
+- `models/` - LLM provider integration
+- `auth/` - OAuth 2.0 + PKCE flows
+- `services/` - Background services
+- `runs/` - Agent execution runtime
+
+</Accordion>
+
+## Build System
+
+### Why esbuild Bundling?
+
+<Info>
+pnpm uses **symlinks** for workspace packages. Electron Forge's dependency walker cannot follow these symlinks during packaging. esbuild bundles everything into a single file, eliminating the need for node_modules in the packaged app.
+</Info>
+
+### Build Tools
+
+| Layer | Tool | Purpose |
+|-------|------|----------|
+| Main | esbuild | Bundle to single CommonJS file |
+| Renderer | Vite | Fast dev server, optimized builds |
+| Preload | TypeScript | Compile to JavaScript |
+| Packaging | Electron Forge | Create distributable (.dmg, .exe) |
+
+### Development Commands
+
+```bash
+# Install dependencies
+cd apps/x && pnpm install
+
+# Build workspace packages
+cd apps/x && npm run deps
+
+# Start development server
+cd apps/x && npm run dev
+
+# Lint and type-check
+cd apps/x && npm run lint
+
+# Create production build
+cd apps/x/apps/main && npm run package
+
+# Create distributable
+cd apps/x/apps/main && npm run make
+```
+
+## Background Services
+
+Rowboat runs several long-lived background services in the main process:
+
+| Service | Purpose | File |
+|---------|---------|------|
+| Gmail Sync | Fetch and index emails | `core/src/knowledge/sync_gmail.ts` |
+| Calendar Sync | Fetch calendar events | `core/src/knowledge/sync_calendar.ts` |
+| Fireflies Sync | Fetch meeting transcripts | `core/src/knowledge/sync_fireflies.ts` |
+| Granola Sync | Fetch Granola notes | `core/src/knowledge/granola/sync.ts` |
+| Graph Builder | Process content into knowledge graph | `core/src/knowledge/build_graph.ts` |
+| Agent Runner | Execute scheduled agents | `core/src/agent-schedule/runner.ts` |
+
+**Service Initialization:**
+```typescript
+// apps/main/src/main.ts
+import { init as initGmailSync } from '@x/core/dist/knowledge/sync_gmail.js';
+import { init as initGraphBuilder } from '@x/core/dist/knowledge/build_graph.js';
+
+initGmailSync();         // Start Gmail sync loop
+initGraphBuilder();      // Start graph processing loop
+```
+
+## Tech Stack Summary
+
+| Layer | Technology |
+|-------|------------|
+| Desktop Framework | Electron 39.x |
+| UI Framework | React 19 |
+| Styling | TailwindCSS, Radix UI |
+| Build Tools | Vite 7, esbuild |
+| Package Manager | pnpm (workspace protocol) |
+| TypeScript | 5.9 (ES2022 target) |
+| AI SDK | Vercel AI SDK |
+| OAuth | openid-client (RFC 7636 PKCE) |
+| Packaging | Electron Forge |
+
+## Key Design Principles
+
+<Accordion title="Security - Sandboxed Renderer">
+
+- **No Node.js in renderer:** All Node operations go through IPC
+- **Context isolation:** Preload context separated from renderer
+- **Sandbox enabled:** Renderer runs in Chromium sandbox
+- **Validated IPC:** All messages validated with Zod schemas
+
+</Accordion>
+
+<Accordion title="Performance - Optimized Builds">
+
+- **Single-file bundling:** esbuild creates one main.cjs file
+- **Hot reload:** Renderer changes reload instantly
+- **Lazy loading:** React components lazy-loaded where possible
+- **Efficient IPC:** Minimal data transfer between processes
+
+</Accordion>
+
+<Accordion title="Developer Experience">
+
+- **Type safety:** Full TypeScript coverage
+- **Schema validation:** Runtime validation with Zod
+- **Fast rebuilds:** Vite HMR for instant feedback
+- **Monorepo structure:** Shared code in @x packages
+
+</Accordion>
+
+## Next Steps
+
+- [Knowledge System Architecture](/development/architecture/knowledge-system) - Deep dive into the knowledge graph
+- [AI Integration](/development/architecture/ai-integration) - LLM provider integration details
+- [OAuth Implementation](/development/architecture/oauth) - OAuth 2.0 + PKCE flows

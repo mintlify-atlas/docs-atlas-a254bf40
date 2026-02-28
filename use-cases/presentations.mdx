@@ -1,0 +1,381 @@
+---
+title: Creating PDF Presentations
+description: Generate professional slide decks with Rowboat's automated presentation builder
+icon: presentation-screen
+---
+
+Rowboat creates professional PDF presentations by generating HTML slides with consistent themes, converting them to PDF using Playwright, and delivering the final deck to your Desktop.
+
+## How It Works
+
+<Steps>
+  <Step title="Gather context from knowledge base">
+    Rowboat searches your `knowledge/` folder for relevant information about:
+    - Your company and product
+    - Team members
+    - Projects and partnerships
+    - Metrics and results
+  </Step>
+  
+  <Step title="Plan the narrative arc">
+    Before building slides, Rowboat maps out:
+    - **Hook**: Opening statement or question that grabs attention
+    - **Core argument**: The one thing the audience should remember
+    - **Supporting evidence**: Data, examples, frameworks that back it up
+    - **Call to action**: What the audience should do next
+  </Step>
+  
+  <Step title="Select theme and layouts">
+    Based on topic and audience, Rowboat picks:
+    - A unified color theme (Dark Professional, Light Editorial, or Bold Vibrant)
+    - Appropriate layouts from 35+ templates for each slide
+    - Consistent typography and visual style
+  </Step>
+  
+  <Step title="Generate HTML slides">
+    Creates presentation.html with:
+    - 8-15 slides (title + content + closing)
+    - 1280x720px slides with proper PDF export settings
+    - CSS-based visuals (no external images)
+    - Consistent theme across all slides
+  </Step>
+  
+  <Step title="Validate before export">
+    Checks for common issues:
+    - Title text overflow
+    - Content extending beyond slide boundaries
+    - Broken visuals or missing fonts
+    - Theme consistency
+  </Step>
+  
+  <Step title="Convert to PDF">
+    Uses Playwright to:
+    - Render HTML with full styling
+    - Export each slide as a PDF page
+    - Save final deck to ~/Desktop/presentation.pdf
+  </Step>
+</Steps>
+
+## Example Usage
+
+<CodeGroup>
+```text Investor pitch
+Create a pitch deck for our Series A fundraise
+```
+
+```text Product presentation
+Build a presentation about our Q4 product roadmap
+```
+
+```text With theme
+Create a quarterly business review deck with a light editorial theme
+```
+
+```text Company overview
+Make a company overview presentation for new hires
+```
+</CodeGroup>
+
+## Available Themes
+
+Rowboat automatically selects the best theme based on your topic and audience:
+
+<CardGroup cols={3}>
+  <Card title="Dark Professional" icon="moon">
+    Deep navy/charcoal backgrounds with indigo and violet accents. White text.
+    
+    **Best for:** Tech, SaaS, keynotes, engineering presentations
+  </Card>
+  
+  <Card title="Light Editorial" icon="sun">
+    White/warm cream backgrounds with amber and stone accents. Dark text with serif headings.
+    
+    **Best for:** Reports, proposals, thought leadership, research
+  </Card>
+  
+  <Card title="Bold Vibrant" icon="palette">
+    Mixed dark and light slides with emerald and rose accents. High contrast.
+    
+    **Best for:** Pitch decks, marketing, creative work, fundraising
+  </Card>
+</CardGroup>
+
+<Tip>
+If you don't specify a theme, Rowboat picks the best fit automatically. It will note which theme was used so you can request a different one if needed.
+</Tip>
+
+## Slide Layout Library
+
+Rowboat has 35+ pre-built slide layouts grouped by purpose:
+
+### Title & Structure
+
+- Title Slide (Dark Gradient) - Hero opening with atmospheric glow
+- Title Slide (Light Editorial) - Clean serif typography  
+- Section Divider - Chapter break with oversized background number
+- Agenda / Table of Contents - Numbered items with descriptions
+- Full-Bleed Cinematic - Atmospheric background with grid texture
+
+### Content Slides
+
+- Big Statement / Quote - Full-color background with bold quote
+- Big Stat Number - Single dramatic metric with context
+- Bullet List (Split Panel) - Dark sidebar + light content area
+- Numbered List - Ordered steps in numbered cards
+- Two Columns - Side-by-side content cards
+- Three Columns with Icons - Feature cards with icon accents
+
+### Chart & Data Slides
+
+- Bar Chart (Vertical) - Gradient bars with labels
+- Horizontal Bar Chart - Ranked bars for long labels
+- Stacked Bar Chart - Segmented composition bars
+- Combo Chart (Bar + Line) - Volume bars + growth rate line
+- Donut Chart - CSS conic-gradient with legend
+- Line Chart - SVG polyline with area fill
+- KPI Dashboard - Color-coded metric cards
+- Data Table - Styled rows with status badges
+
+### Diagrams
+
+- Horizontal Timeline - Connected milestone dots
+- Vertical Timeline - Left-rail progression
+- Process Flow - Step cards with arrows
+- Funnel Diagram - Tapered conversion stages
+- Pyramid Diagram - Tiered hierarchy levels
+- Cycle Diagram - Circular feedback loop
+- Venn Diagram - Overlapping circles
+- 2x2 Matrix - Four quadrants with axis labels
+
+### Comparison & Closing
+
+- Comparison / Vs - Split A vs B layout
+- Pros & Cons - Checkmarks vs warnings
+- Pricing Table - Tiered cards with featured highlight
+- Team Grid - Avatar circles with roles
+- Thank You / CTA - Atmospheric closing with contact details
+
+## Visual Consistency Rules
+
+Rowboat follows strict design principles to ensure professional results:
+
+### One Theme Per Deck
+
+<Warning>
+The most important rule: Pick ONE theme and apply it consistently to EVERY slide. Never mix color palettes mid-deck.
+</Warning>
+
+- Define theme palette upfront (primary color, accent color, neutral base)
+- Use same accent color for all highlights, bullets, icons, chart fills
+- Typography colors stay consistent across all slides
+- Charts use shades/tints of theme colors only
+
+### Background Strategy
+
+**For dark themes:**
+- Deep base (e.g. #0f172a) for 80%+ of slides
+- Medium base (e.g. #1e293b) for subtle variation
+- Accent pop (e.g. #6366f1) for 1-2 key stat slides
+- NEVER use white or light backgrounds in dark-themed decks
+
+**For light themes:**
+- Light base (e.g. #fafaf9) for most content slides  
+- Warm tint (e.g. #fefce8) for visual rhythm
+- Accent pop for 1-2 key slides
+- NEVER use dark/navy backgrounds in light-themed decks
+
+<Tip>
+Never alternate between dark and light backgrounds. This creates a jarring effect. Use subtle shade variations within the same tone family instead.
+</Tip>
+
+### Title Slide Rules
+
+- Title text must span full slide width
+- No decorative elements beside the title competing for space
+- Single-column, vertically-stacked layout
+- Title font-size max 64px (48px for long titles)
+- Decorative visuals go BEHIND text, never beside it
+
+## PDF Export Technical Details
+
+Rowboat follows specific rules to ensure clean PDF rendering:
+
+### No Layered Elements
+
+❌ **Avoid:**
+```html
+<div class="background"></div>
+<div class="shadow"></div>
+<div class="content">Text</div>
+```
+
+✅ **Use:**
+```html
+<div class="content" style="background: #fff; border: 1px solid #e5e7eb;">
+  Text
+</div>
+```
+
+### Slides Must Fit
+
+- Slides are 1280x720px with 60px padding
+- Safe content area: 1160x600px
+- Use `overflow: hidden` to prevent content from extending beyond boundaries
+
+### No External Images
+
+❌ **Avoid:**
+```html
+<img src="https://example.com/photo.jpg">
+```
+
+✅ **Use:**
+- CSS gradients and shapes
+- Inline SVG graphics
+- Emoji for icons
+
+### No Footers or Headers
+
+❌ **Avoid:**
+```html
+<div style="position: fixed; bottom: 0;">Slide 5</div>
+```
+
+Fixed-positioned elements overlap with content in PDF rendering. Include slide numbers or metadata in the normal content flow if needed.
+
+## Validation Checks
+
+Before converting to PDF, Rowboat validates:
+
+<Steps>
+  <Step title="Title overflow check">
+    Verifies title text fits within slide width at set font-size. Auto-reduces if needed:
+    - Short titles (1-3 words): 72px max
+    - Medium titles (4-6 words): 56px max  
+    - Long titles (7+ words): 44px max
+  </Step>
+  
+  <Step title="Content bounds check">
+    Confirms no elements extend beyond 1280x720 boundaries. Looks for:
+    - Long titles
+    - Bullet lists with 6+ items
+    - Wide tables
+    - Text wrapping beyond available height
+  </Step>
+  
+  <Step title="Broken visuals check">
+    Ensures no `<img>` tags reference external URLs. All visuals must be CSS, SVG, or emoji.
+  </Step>
+  
+  <Step title="Font loading check">
+    Verifies Google Fonts `<link>` includes all font families used in CSS.
+  </Step>
+  
+  <Step title="Theme consistency check">
+    Confirms all slides use the same palette with no rogue colors.
+  </Step>
+</Steps>
+
+## Workflow Example
+
+Here's what happens behind the scenes:
+
+```bash
+# 1. Rowboat searches knowledge base for context
+workspace-readFile("knowledge/Organizations/Our Company.md")
+workspace-readFile("knowledge/Projects/Series A.md")
+
+# 2. Plans narrative and selects theme
+# Hook: The market opportunity
+# Core: Our unique approach
+# Evidence: Traction metrics, customer stories
+# CTA: Investment ask
+# Theme: Bold Vibrant (pitch deck)
+
+# 3. Generates HTML with 12 slides
+workspace-writeFile("tmp/presentation.html", htmlContent)
+
+# 4. Validates (checks all pass)
+
+# 5. Creates conversion script
+workspace-writeFile("tmp/convert.js", playwrightScript)
+
+# 6. Converts to PDF
+node /workspace/tmp/convert.js
+
+# 7. Final output
+~/Desktop/presentation.pdf
+```
+
+<Tip>
+The entire process is invisible to you. Rowboat handles package installation, file creation, validation, and conversion automatically.
+</Tip>
+
+## Best Practices
+
+### Provide context in your knowledge base
+
+The richer your `knowledge/` folder, the better your presentations:
+- Company overview with mission, product, market
+- Team member bios and roles
+- Project documentation with metrics and outcomes
+- Customer/partner information
+
+### Be specific about purpose and audience
+
+Instead of: "Make a presentation"  
+Try: "Create an investor pitch deck for Series A VCs" or "Build a quarterly business review for the board"
+
+This helps Rowboat:
+- Choose the right theme
+- Select appropriate layouts
+- Set the right tone and detail level
+
+### Request theme changes
+
+If the auto-selected theme doesn't match your preference:
+
+```text
+Recreate this with a light editorial theme instead
+```
+
+### Keep it focused
+
+Best presentations are 8-15 slides:
+- Title slide
+- Optional agenda
+- 6-10 content slides (every slide earns its place)
+- Closing/CTA
+
+No filler content or unnecessary padding.
+
+## Dependencies
+
+Rowboat automatically handles installation:
+
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+You don't need to run these commands yourself.
+
+## Output Location
+
+Final presentation is saved to:
+
+```
+~/Desktop/presentation.pdf
+```
+
+Temporary files during generation:
+
+```
+~/workspace/tmp/presentation.html
+~/workspace/tmp/convert.js
+```
+
+## Related Features
+
+- [Document Collaboration](/use-cases/document-collaboration) - Build presentation content in knowledge base first
+- [Meeting Prep](/use-cases/meeting-prep) - Get context on presentation attendees

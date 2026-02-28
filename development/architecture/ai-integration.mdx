@@ -1,0 +1,566 @@
+---
+title: AI/LLM Integration
+description: How Rowboat integrates with multiple LLM providers using Vercel AI SDK
+---
+
+Rowboat uses the **Vercel AI SDK** for unified LLM integration, supporting multiple providers with a consistent interface.
+
+## Architecture Overview
+
+```
+Rowboat App
+    ↓
+@x/core/models/
+    ↓
+Vercel AI SDK
+    ↓
+┌──────────┬──────────┬──────────┬──────────┬──────────┐
+│  OpenAI  │Anthropic │  Google  │  Ollama  │OpenRouter│
+└──────────┴──────────┴──────────┴──────────┴──────────┘
+```
+
+## Supported Providers
+
+Rowboat supports six provider types through a unified configuration:
+
+| Provider | SDK Package | Use Case |
+|----------|-------------|----------|
+| **OpenAI** | `@ai-sdk/openai` | GPT-4, GPT-3.5 models |
+| **Anthropic** | `@ai-sdk/anthropic` | Claude models |
+| **Google** | `@ai-sdk/google` | Gemini models |
+| **Ollama** | `ollama-ai-provider-v2` | Local models |
+| **OpenRouter** | `@openrouter/ai-sdk-provider` | Multi-provider routing |
+| **AI Gateway** | Vercel AI Gateway | Load balancing, caching |
+| **OpenAI-Compatible** | `@ai-sdk/openai-compatible` | Custom endpoints |
+
+## Configuration System
+
+<Accordion title="Model Configuration Schema">
+
+**Location:** `~/.rowboat/config/models.json`
+
+**Schema:**
+```typescript
+interface ModelConfig {
+  provider: {
+    flavor: 'openai' | 'anthropic' | 'google' | 'ollama' | 
+            'openrouter' | 'aigateway' | 'openai-compatible';
+    apiKey?: string;      // API key (optional for local providers)
+    baseURL?: string;     // Custom endpoint URL
+    headers?: Record<string, string>; // Custom headers
+  };
+  model: string;          // Model name (e.g., "gpt-4", "claude-3-opus")
+}
+```
+
+**Example Configurations:**
+
+```json
+// OpenAI
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-..."
+  },
+  "model": "gpt-4"
+}
+
+// Anthropic
+{
+  "provider": {
+    "flavor": "anthropic",
+    "apiKey": "sk-ant-..."
+  },
+  "model": "claude-3-opus-20240229"
+}
+
+// Ollama (local)
+{
+  "provider": {
+    "flavor": "ollama",
+    "baseURL": "http://localhost:11434"
+  },
+  "model": "llama2"
+}
+
+// OpenRouter
+{
+  "provider": {
+    "flavor": "openrouter",
+    "apiKey": "sk-or-...",
+    "baseURL": "https://openrouter.ai/api/v1"
+  },
+  "model": "anthropic/claude-3-opus"
+}
+```
+
+</Accordion>
+
+<Accordion title="Configuration Repository">
+
+**Purpose:** Manage LLM configuration persistence
+
+**Implementation:**
+```typescript
+// core/src/models/repo.ts
+class FSModelConfigRepo {
+  private configPath = path.join(WorkDir, 'config', 'models.json');
+  
+  async ensureConfig(): Promise<void> {
+    if (!fs.existsSync(this.configPath)) {
+      await fs.writeFile(
+        this.configPath, 
+        JSON.stringify(defaultConfig, null, 2)
+      );
+    }
+  }
+  
+  async getConfig(): Promise<ModelConfig> {
+    const config = await fs.readFile(this.configPath, 'utf8');
+    return ModelConfig.parse(JSON.parse(config));
+  }
+  
+  async setConfig(config: ModelConfig): Promise<void> {
+    await fs.writeFile(
+      this.configPath, 
+      JSON.stringify(config, null, 2)
+    );
+  }
+}
+```
+
+**Location:** `core/src/models/repo.ts`
+
+</Accordion>
+
+## Provider Creation
+
+<Info>
+The `createProvider` function wraps Vercel AI SDK's provider factories with Rowboat's configuration schema.
+</Info>
+
+```typescript
+// core/src/models/models.ts
+import { ProviderV2 } from '@ai-sdk/provider';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOllama } from 'ollama-ai-provider-v2';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+export function createProvider(config: ProviderConfig): ProviderV2 {
+  const { apiKey, baseURL, headers } = config;
+  
+  switch (config.flavor) {
+    case 'openai':
+      return createOpenAI({ apiKey, baseURL, headers });
+      
+    case 'anthropic':
+      return createAnthropic({ apiKey, baseURL, headers });
+      
+    case 'google':
+      return createGoogleGenerativeAI({ apiKey, baseURL, headers });
+      
+    case 'ollama': {
+      // Ollama expects baseURL to include /api
+      let ollamaURL = baseURL;
+      if (ollamaURL && !ollamaURL.endsWith('/api')) {
+        ollamaURL = ollamaURL.replace(/\/$/, '') + '/api';
+      }
+      return createOllama({ baseURL: ollamaURL, headers });
+    }
+    
+    case 'openrouter':
+      return createOpenRouter({ apiKey, baseURL, headers });
+      
+    case 'aigateway':
+      return createGateway({ apiKey, baseURL, headers });
+      
+    case 'openai-compatible':
+      return createOpenAICompatible({
+        name: 'openai-compatible',
+        apiKey,
+        baseURL: baseURL || '',
+        headers,
+      });
+      
+    default:
+      throw new Error(`Unsupported provider flavor: ${config.flavor}`);
+  }
+}
+```
+
+## Usage in Agents
+
+<Accordion title="Agent Runtime Integration">
+
+**How agents use models:**
+
+```typescript
+// Load configuration
+const config = await modelRepo.getConfig();
+
+// Create provider
+const provider = createProvider(config.provider);
+
+// Get language model
+const model = provider.languageModel(config.model);
+
+// Generate text with Vercel AI SDK
+import { generateText } from 'ai';
+
+const result = await generateText({
+  model,
+  prompt: 'Extract entities from this email...',
+  temperature: 0.7,
+  maxTokens: 4000,
+});
+```
+
+**Streaming responses:**
+```typescript
+import { streamText } from 'ai';
+
+const stream = await streamText({
+  model,
+  prompt: 'Generate a summary...',
+});
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+**Tool calling:**
+```typescript
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
+
+const result = await generateText({
+  model,
+  prompt: 'Create a note for John Doe',
+  tools: {
+    createNote: tool({
+      description: 'Create a new note',
+      parameters: z.object({
+        path: z.string(),
+        content: z.string(),
+      }),
+      execute: async ({ path, content }) => {
+        await fs.writeFile(path, content);
+        return { success: true };
+      },
+    }),
+  },
+});
+```
+
+</Accordion>
+
+## Model Testing
+
+<Info>
+Rowboat includes a connection testing function to validate model configurations before use.
+</Info>
+
+```typescript
+// core/src/models/models.ts
+export async function testModelConnection(
+  providerConfig: ProviderConfig,
+  model: string,
+  timeoutMs?: number,
+): Promise<{ success: boolean; error?: string }> {
+  // Longer timeout for local models (60s vs 8s)
+  const isLocal = providerConfig.flavor === 'ollama' || 
+                  providerConfig.flavor === 'openai-compatible';
+  const effectiveTimeout = timeoutMs ?? (isLocal ? 60000 : 8000);
+  
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), effectiveTimeout);
+  
+  try {
+    const provider = createProvider(providerConfig);
+    const languageModel = provider.languageModel(model);
+    
+    // Send "ping" to test connection
+    await generateText({
+      model: languageModel,
+      prompt: 'ping',
+      abortSignal: controller.signal,
+    });
+    
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Connection test failed';
+    return { success: false, error: message };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+```
+
+**Usage:**
+```typescript
+const result = await testModelConnection(
+  { flavor: 'openai', apiKey: 'sk-...' },
+  'gpt-4'
+);
+
+if (!result.success) {
+  console.error('Connection failed:', result.error);
+}
+```
+
+## Models.dev Integration
+
+<Accordion title="Model Catalog">
+
+**Purpose:** Fetch and cache available models from OpenAI, Anthropic, and Google
+
+**Location:** `~/.rowboat/config/models.dev.json`
+
+**Process:**
+1. Fetch from https://models.dev API
+2. Cache response locally
+3. Filter by provider (OpenAI, Anthropic, Google only)
+4. Display in UI for model selection
+
+**Implementation:**
+```typescript
+// core/src/models/models-dev.ts
+export async function fetchModelsCatalog(): Promise<ModelEntry[]> {
+  const response = await fetch('https://api.models.dev/v1/models');
+  const data = await response.json();
+  
+  // Cache locally
+  const cachePath = path.join(WorkDir, 'config', 'models.dev.json');
+  await fs.writeFile(cachePath, JSON.stringify(data, null, 2));
+  
+  return data;
+}
+
+export function getModelsForProvider(provider: string): ModelEntry[] {
+  const catalog = loadCatalogCache();
+  return catalog.filter(m => m.provider === provider);
+}
+```
+
+</Accordion>
+
+## Provider-Specific Notes
+
+<Accordion title="OpenAI">
+
+**Models:** GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'openai',
+    apiKey: 'sk-...', // Required
+  },
+  model: 'gpt-4-turbo-preview'
+}
+```
+
+**Features:**
+- Function calling
+- Streaming
+- Vision (GPT-4V)
+- JSON mode
+
+</Accordion>
+
+<Accordion title="Anthropic (Claude)">
+
+**Models:** Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'anthropic',
+    apiKey: 'sk-ant-...', // Required
+  },
+  model: 'claude-3-opus-20240229'
+}
+```
+
+**Features:**
+- Tool use
+- Streaming
+- 200K context window
+- System prompts
+
+</Accordion>
+
+<Accordion title="Google (Gemini)">
+
+**Models:** Gemini Pro, Gemini Ultra
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'google',
+    apiKey: 'AIza...', // Required
+  },
+  model: 'gemini-pro'
+}
+```
+
+**Features:**
+- Function calling
+- Streaming
+- Multimodal (text + images)
+
+</Accordion>
+
+<Accordion title="Ollama (Local)">
+
+**Models:** Llama 2, Mistral, CodeLlama, etc.
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'ollama',
+    baseURL: 'http://localhost:11434', // Default
+  },
+  model: 'llama2'
+}
+```
+
+**Special Handling:**
+- No API key required
+- baseURL automatically appends `/api`
+- Longer timeout (60s vs 8s)
+- Must have Ollama running locally
+
+**Installation:**
+```bash
+# Install Ollama
+brew install ollama
+
+# Start Ollama server
+ollama serve
+
+# Pull a model
+ollama pull llama2
+```
+
+</Accordion>
+
+<Accordion title="OpenRouter">
+
+**Purpose:** Route to 100+ models from multiple providers
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'openrouter',
+    apiKey: 'sk-or-...', // Required
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  model: 'anthropic/claude-3-opus' // Provider prefix
+}
+```
+
+**Features:**
+- Unified pricing
+- Fallback routing
+- Load balancing
+- No rate limits
+
+</Accordion>
+
+<Accordion title="Vercel AI Gateway">
+
+**Purpose:** Load balancing, caching, and observability
+
+**Configuration:**
+```typescript
+{
+  provider: {
+    flavor: 'aigateway',
+    apiKey: 'vg_...', // Vercel API key
+    baseURL: 'https://gateway.vercel.ai',
+  },
+  model: 'gpt-4'
+}
+```
+
+**Features:**
+- Request caching
+- Load balancing across providers
+- Usage analytics
+- Rate limiting
+
+</Accordion>
+
+## Error Handling
+
+<Warning>
+Always handle provider errors gracefully. Network issues, rate limits, and invalid API keys are common.
+</Warning>
+
+```typescript
+try {
+  const result = await generateText({ model, prompt });
+  return result.text;
+} catch (error) {
+  if (error instanceof Error) {
+    // Handle specific error types
+    if (error.message.includes('rate limit')) {
+      console.error('Rate limited. Try again later.');
+    } else if (error.message.includes('unauthorized')) {
+      console.error('Invalid API key.');
+    } else {
+      console.error('Generation failed:', error.message);
+    }
+  }
+  throw error;
+}
+```
+
+## Performance Considerations
+
+<Accordion title="Timeout Configuration">
+
+- **Cloud providers (OpenAI, Anthropic, Google):** 8-second timeout
+- **Local providers (Ollama):** 60-second timeout
+- **Custom providers:** Configurable via `testModelConnection`
+
+</Accordion>
+
+<Accordion title="Streaming for UX">
+
+Use streaming for long responses to improve perceived performance:
+
+```typescript
+const stream = await streamText({ model, prompt });
+
+for await (const chunk of stream.textStream) {
+  // Send chunk to UI immediately
+  win.webContents.send('text-chunk', chunk);
+}
+```
+
+</Accordion>
+
+<Accordion title="Caching Strategies">
+
+- **Model catalog:** Cached locally, refreshed on demand
+- **Configuration:** Loaded once at startup, reloaded on change
+- **Provider instances:** Cached per issuer:clientId
+
+</Accordion>
+
+## Code References
+
+- Provider Factory: `core/src/models/models.ts:15`
+- Configuration Repo: `core/src/models/repo.ts:20`
+- Model Testing: `core/src/models/models.ts:71`
+- Models.dev Integration: `core/src/models/models-dev.ts`

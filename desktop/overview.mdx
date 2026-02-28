@@ -1,0 +1,113 @@
+---
+title: Desktop App Overview
+description: Introduction to Rowboat's local-first AI desktop application
+---
+
+Rowboat Desktop is a local-first AI coworker that builds a knowledge graph from your work and helps you act on it. Everything runs privately on your machine - your emails, meetings, and notes stay under your control.
+
+## What is Rowboat Desktop?
+
+Rowboat Desktop connects to your email and meeting notes, builds a long-lived knowledge graph, and uses that context to help you:
+
+- **Draft emails** grounded in past conversations and commitments
+- **Prep for meetings** with briefs that include prior decisions and open questions
+- **Create presentations** as PDF slides using context from your work
+- **Track projects** with memory that compounds over time
+- **Record voice memos** that automatically update your knowledge graph
+
+<Note>
+Unlike AI tools that reconstruct context on demand, Rowboat maintains long-lived knowledge that accumulates over time. Context isn't retrieved - it's already there.
+</Note>
+
+## Key Benefits
+
+<CardGroup cols={2}>
+  <Card title="Private by Default" icon="lock">
+    All data stored locally as plain Markdown. No cloud storage required.
+  </Card>
+  
+  <Card title="Memory That Compounds" icon="brain">
+    Context accumulates across emails and meetings, not reconstructed each time.
+  </Card>
+  
+  <Card title="Bring Your Own Model" icon="key">
+    Works with OpenAI, Anthropic, Google, Ollama, and OpenAI-compatible APIs.
+  </Card>
+  
+  <Card title="Obsidian Compatible" icon="file-lines">
+    Knowledge graph stored as Markdown with backlinks you can edit anytime.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Connect Your Work">
+    Link Gmail, Google Calendar, and meeting note services (Granola, Fireflies, Google Meet).
+  </Step>
+  
+  <Step title="Build the Knowledge Graph">
+    Rowboat extracts people, projects, organizations, and topics into Markdown notes with backlinks.
+  </Step>
+  
+  <Step title="Get Help with Context">
+    Ask Rowboat to draft emails, prep meetings, create docs - all grounded in your accumulated memory.
+  </Step>
+  
+  <Step title="Inspect and Edit">
+    Open the knowledge graph in Obsidian or any text editor. All notes are yours to modify.
+  </Step>
+</Steps>
+
+## Supported Platforms
+
+- **macOS** - Apple Silicon and Intel
+- **Windows** - Windows 10 and later
+- **Linux** - AppImage and deb packages
+
+<Note>
+Download the latest version from [rowboatlabs.com/downloads](https://www.rowboatlabs.com/downloads)
+</Note>
+
+## Integrations
+
+Rowboat Desktop builds memory from:
+
+- **Gmail** - Email threads and conversations
+- **Google Calendar** - Meeting schedules and attendees
+- **Google Meet** - Meeting transcripts and recordings
+- **Granola** - AI-powered meeting notes
+- **Fireflies** - Meeting transcription service
+
+## What Makes Rowboat Different
+
+Most AI assistants start cold every session, searching documents and transcripts to reconstruct context.
+
+**Rowboat maintains long-lived knowledge:**
+
+- Context accumulates over time across all interactions
+- Relationships between people, projects, and topics are explicit
+- Notes are editable by you, not hidden inside a model
+- Everything lives on your machine as plain Markdown files
+
+The result is **memory that compounds**, rather than retrieval that starts from scratch.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="sparkles" href="/desktop/features">
+    Learn about AI assistance, knowledge graph, and background agents
+  </Card>
+  
+  <Card title="Configure Models" icon="sliders" href="/desktop/model-configuration">
+    Set up OpenAI, Anthropic, Google, Ollama, or local models
+  </Card>
+  
+  <Card title="Understand Workspace" icon="folder" href="/desktop/workspace">
+    Explore the ~/.rowboat/ directory structure
+  </Card>
+  
+  <Card title="Install the App" icon="download" href="https://www.rowboatlabs.com/downloads">
+    Download Rowboat for Mac, Windows, or Linux
+  </Card>
+</CardGroup>

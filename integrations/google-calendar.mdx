@@ -1,0 +1,343 @@
+---
+title: Google Calendar Integration
+description: Sync calendar events and meeting notes to Rowboat
+---
+
+Rowboat syncs your Google Calendar events and attached Google Docs to keep your schedule and meeting notes accessible to your AI assistant.
+
+## Overview
+
+The Google Calendar integration:
+- Syncs events from 14 days in the past to 14 days in the future
+- Downloads Google Docs attached to calendar events
+- Tracks event changes (new, updated, deleted)
+- Converts meeting notes to markdown
+- Runs automatically every 5 minutes
+
+## Prerequisites
+
+<Info>
+Calendar integration requires Google OAuth setup with both Calendar and Drive API access.
+</Info>
+
+## Google OAuth Setup
+
+Follow these steps to connect Google Calendar to Rowboat.
+
+<Steps>
+  <Step title="Open Google Cloud Console">
+    Go to [Google Cloud Console](https://console.cloud.google.com/) and make sure you're logged into the Google account you want to use.
+  </Step>
+
+  <Step title="Create a New Project">
+    Go to [Create Project](https://console.cloud.google.com/projectcreate)
+    
+    - Click **Create Project**
+    - Give it a name (e.g. `Rowboat Integration`)
+    - Click **Create**
+    
+    Once created, select the new project in the top project dropdown.
+  </Step>
+
+  <Step title="Enable Required APIs">
+    Enable the following APIs for your project:
+    
+    **Google Calendar API:**
+    https://console.cloud.google.com/apis/api/calendar-json.googleapis.com
+    
+    **Google Drive API:**
+    https://console.cloud.google.com/apis/api/drive.googleapis.com
+    
+    Click **Enable** for each API.
+  </Step>
+
+  <Step title="Configure OAuth Consent Screen">
+    Go to [OAuth Consent Screen](https://console.cloud.google.com/auth/branding)
+    
+    **App Information:**
+    - App name: `Rowboat`
+    - User support email: Your email
+    
+    **Audience:**
+    - Choose **External**
+    
+    **Contact Information:**
+    - Add your email address
+    
+    Click **Save and Continue** through the remaining steps.
+    
+    <Note>
+    You do NOT need to publish the app — keeping it in **Testing** mode is fine.
+    </Note>
+  </Step>
+
+  <Step title="Add Test Users">
+    If your app is in Testing mode, you must add users manually.
+    
+    Go to [Test Users](https://console.cloud.google.com/auth/audience)
+    
+    Under **Test Users:**
+    - Click **Add Users**
+    - Add the email address you plan to connect with Rowboat
+    
+    Save changes.
+  </Step>
+
+  <Step title="Create OAuth Client ID">
+    Go to [Credentials](https://console.cloud.google.com/auth/clients)
+    
+    Click **Create Credentials → OAuth Client ID**
+    
+    **Application Type:**
+    - Select: **Universal Windows Platform (UWP)**
+    - Name: `Rowboat Desktop`
+    - Store ID: `test`
+    - Click **Create**
+  </Step>
+
+  <Step title="Copy the Client ID">
+    After creation, Google will show:
+    - **Client ID**
+    - **Client Secret**
+    
+    Copy the **Client ID** and paste it into Rowboat where prompted.
+  </Step>
+</Steps>
+
+## How It Works
+
+### Sync Configuration
+
+The Calendar sync runs with these settings:
+
+```typescript
+const SYNC_DIR = path.join(WorkDir, 'calendar_sync');
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // Every 5 minutes
+const LOOKBACK_DAYS = 14; // 14 days back, 14 days forward
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/calendar.events.readonly',
+  'https://www.googleapis.com/auth/drive.readonly'
+];
+```
+
+### Event Storage Format
+
+Each calendar event is saved as a JSON file:
+
+```json
+{
+  "id": "event123",
+  "summary": "Team Standup",
+  "start": { "dateTime": "2024-01-01T10:00:00Z" },
+  "end": { "dateTime": "2024-01-01T10:30:00Z" },
+  "organizer": { "email": "organizer@example.com" },
+  "attendees": [
+    { "email": "attendee1@example.com" },
+    { "email": "attendee2@example.com" }
+  ],
+  "attachments": [
+    {
+      "fileId": "doc123",
+      "title": "Meeting Notes",
+      "mimeType": "application/vnd.google-apps.document"
+    }
+  ]
+}
+```
+
+### Meeting Notes Sync
+
+Google Docs attached to events are automatically synced:
+
+```typescript
+if (attachment.mimeType === 'application/vnd.google-apps.document') {
+  const fileId = attachment.fileId;
+  const html = await drive.files.export({
+    fileId: fileId,
+    mimeType: 'text/html'
+  });
+  
+  const markdown = nodeHtmlMarkdown.translate(html);
+  
+  const frontmatter = [
+    `# ${attachment.title}`,
+    `**Event:** ${eventTitle}`,
+    `**Date:** ${eventDate}`,
+    `**Organizer:** ${organizer}`,
+    `**Link:** ${attachment.fileUrl}`,
+    `---`,
+  ].join('\n');
+  
+  fs.writeFileSync(filePath, frontmatter + markdown);
+}
+```
+
+### Sync Window
+
+Rowboat syncs events in a rolling window:
+
+```typescript
+const now = new Date();
+const lookbackMs = 14 * 24 * 60 * 60 * 1000;
+const forwardMs = 14 * 24 * 60 * 60 * 1000;
+
+const timeMin = new Date(now.getTime() - lookbackMs).toISOString();
+const timeMax = new Date(now.getTime() + forwardMs).toISOString();
+
+const events = await calendar.events.list({
+  calendarId: 'primary',
+  timeMin: timeMin,
+  timeMax: timeMax,
+  singleEvents: true,
+  orderBy: 'startTime'
+});
+```
+
+<Info>
+Events outside this window are automatically deleted from local storage.
+</Info>
+
+## Change Detection
+
+Rowboat tracks three types of changes:
+
+### New Events
+
+```typescript
+if (!fs.existsSync(filePath)) {
+  fs.writeFileSync(filePath, content);
+  newCount++;
+}
+```
+
+### Updated Events
+
+```typescript
+const existing = fs.readFileSync(filePath, 'utf-8');
+if (existing !== content) {
+  fs.writeFileSync(filePath, content);
+  updatedCount++;
+}
+```
+
+### Deleted Events
+
+```typescript
+function cleanUpOldFiles(currentEventIds: Set<string>, syncDir: string) {
+  const files = fs.readdirSync(syncDir);
+  for (const filename of files) {
+    const eventId = filename.replace('.json', '');
+    if (!currentEventIds.has(eventId)) {
+      fs.unlinkSync(path.join(syncDir, filename));
+      deletedCount++;
+    }
+  }
+}
+```
+
+## Activity Logging
+
+Rowboat logs all sync activity:
+
+```typescript
+await serviceLogger.log({
+  type: 'changes_identified',
+  service: 'calendar',
+  runId,
+  level: 'info',
+  message: `Calendar updates: ${totalChanges} changes`,
+  counts: {
+    newEvents: newCount,
+    updatedEvents: updatedCount,
+    deletedFiles: deletedCount,
+    attachments: attachmentCount,
+  },
+});
+```
+
+## Trigger Manual Sync
+
+You can trigger an immediate sync:
+
+```typescript
+import { triggerSync } from './sync_calendar';
+
+triggerSync(); // Wakes up sync immediately
+```
+
+## Troubleshooting
+
+### 401 Unauthorized Error
+
+<Warning>
+If authentication fails, Rowboat clears the OAuth cache and you'll need to reconnect your Google account.
+</Warning>
+
+```typescript
+if (error.response?.status === 401) {
+  console.log("401 Unauthorized, clearing cache");
+  GoogleClientFactory.clearCache();
+}
+```
+
+### Missing Meeting Notes
+
+Rowboat only syncs Google Docs attachments. Other file types are ignored:
+
+```typescript
+if (attachment.mimeType === 'application/vnd.google-apps.document') {
+  // Only process Google Docs
+}
+```
+
+<Note>
+PDFs, images, and other file types attached to calendar events are not synced.
+</Note>
+
+### Rate Limiting
+
+To avoid API rate limits:
+- Sync runs every 5 minutes
+- Only events within the sync window are processed
+- Meeting notes are cached (skipped if file exists)
+
+## Files Synced
+
+| Location | Description |
+|----------|-------------|
+| `~/rowboat/calendar_sync/{eventId}.json` | Event metadata |
+| `~/rowboat/calendar_sync/{eventId}_doc_{title}.md` | Meeting notes |
+| `~/rowboat/calendar_sync/sync_state.json` | Sync state tracking |
+
+## Example Use Cases
+
+### Meeting Preparation
+
+"What meetings do I have tomorrow?"
+
+Rowboat can search your synced calendar events and provide context from attached meeting notes.
+
+### Follow-up Tasks
+
+"What action items came out of yesterday's standup?"
+
+Rowboat can read the Google Doc notes attached to the event and extract action items.
+
+### Schedule Overview
+
+"When am I meeting with the design team this week?"
+
+Rowboat searches event metadata including attendees and titles.
+
+## Privacy & Security
+
+- **Read-Only Access**: Uses `.readonly` scopes only
+- **Local Storage**: All data stored locally on your machine
+- **No Cloud Sync**: Calendar data never sent to external servers
+- **OAuth Tokens**: Securely managed by Google's OAuth flow
+
+## Related Integrations
+
+- [Gmail](/integrations/gmail) - Sync email threads
+- [Granola](/integrations/granola) - Meeting notes from Granola
+- [Fireflies](/integrations/fireflies) - Meeting transcripts

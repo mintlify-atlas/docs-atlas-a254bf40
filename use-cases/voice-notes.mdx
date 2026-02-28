@@ -1,0 +1,324 @@
+---
+title: Voice Memos and Transcription
+description: Capture thoughts, meeting notes, and ideas using voice with automatic transcription
+icon: microphone
+---
+
+Rowboat lets you capture voice memos that are automatically transcribed and processed, making it easy to capture thoughts on the go, record meeting notes, or dictate ideas without typing.
+
+## How It Works
+
+<Steps>
+  <Step title="Record your voice memo">
+    Use Rowboat's voice input to record:
+    - Quick thoughts and ideas
+    - Meeting recaps and takeaways  
+    - Dictated emails or documents
+    - Action items and reminders
+  </Step>
+  
+  <Step title="Automatic transcription">
+    Rowboat transcribes your audio using speech-to-text, converting spoken words into accurate text.
+  </Step>
+  
+  <Step title="Processing and structuring">
+    Based on your request, Rowboat can:
+    - Save the raw transcription
+    - Extract action items
+    - Update knowledge base notes
+    - Draft emails or documents
+    - Create meeting summaries
+  </Step>
+  
+  <Step title="Store or distribute">
+    The processed content is:
+    - Saved to appropriate knowledge base locations
+    - Added to existing documents
+    - Created as new notes
+    - Used for other workflows (emails, briefs, etc.)
+  </Step>
+</Steps>
+
+## Example Usage
+
+<CodeGroup>
+```text Quick note
+"Note to self: follow up with Sarah about the Q4 budget"
+```
+
+```text Meeting recap
+"Record this meeting recap and update the project notes"
+```
+
+```text Action items
+"Extract action items from this voice memo and add them to my tasks"
+```
+
+```text Email draft
+"Turn this voice memo into an email to the team about tomorrow's launch"
+```
+</CodeGroup>
+
+## Common Voice Workflows
+
+<CardGroup cols={2}>
+  <Card title="Post-meeting capture" icon="users">
+    Record key takeaways, decisions, and action items immediately after a meeting while they're fresh.
+  </Card>
+  
+  <Card title="Idea capture" icon="lightbulb">
+    Capture ideas, insights, or observations on the go without needing to type.
+  </Card>
+  
+  <Card title="Email dictation" icon="envelope">
+    Dictate email responses or messages that Rowboat can structure and refine.
+  </Card>
+  
+  <Card title="Knowledge updates" icon="database">
+    Speak updates to person notes, project status, or other knowledge base entries.
+  </Card>
+</CardGroup>
+
+## Voice-to-Knowledge Base
+
+One powerful workflow is updating your knowledge base via voice:
+
+**Example:** Post-meeting update
+
+**Voice input:**  
+"Just finished meeting with Sarah Chen from Horizon Ventures. She was really impressed with our Q4 growth numbers, especially the 125% net revenue retention. She asked for an updated financial model with CAC breakdown by channel. We agreed to meet again next week to discuss term sheet timeline. She mentioned she's also looking at our competitor TechFlow but thinks our unit economics are stronger."
+
+**Rowboat processes this to:**
+
+1. **Update person note** (`knowledge/People/Sarah Chen.md`):
+```markdown
+## Recent Interactions
+
+### Jan 20, 2025 - Partnership Meeting
+- Impressed with Q4 growth and 125% NRR
+- Requested updated financial model with CAC by channel
+- Next meeting scheduled for next week
+- Discussion topic: term sheet timeline
+- Notes: Also evaluating [[TechFlow]], sees our unit economics as stronger
+
+## Open Items
+- [ ] Send updated financial model with CAC breakdown
+- [ ] Schedule follow-up meeting for term sheet discussion
+```
+
+2. **Cross-reference** to `knowledge/Organizations/Horizon Ventures.md`
+
+3. **Link** to relevant project notes
+
+<Tip>
+Speak naturally. Rowboat's transcription handles conversational language and can extract structure from informal voice memos.
+</Tip>
+
+## Voice + Document Collaboration
+
+Combine voice input with document editing:
+
+**Workflow:**
+
+1. "Open the investor update document"
+2. *Record voice memo about Q4 results*
+3. "Add that to the Q4 section"
+4. *Rowboat transcribes and inserts content*
+5. "Now add context about the Acme partnership"
+6. *Record details*
+7. "Great, add that too"
+
+This creates a hands-free document editing experience.
+
+## Voice + Email Drafting
+
+**Workflow:**
+
+**You:** "Draft an email to Monica"
+
+**Rowboat:** *Searches knowledge base for Monica's context*  
+"I see Monica Johnson - VP Product at Acme Corp. What would you like to say?"
+
+**You:** *Record voice memo*  
+"Hi Monica, following up on our conversation last week about the API integration timeline. Our team has finished the initial implementation and we're ready to start testing. Can we schedule a call this week to walk through the setup? Let me know what times work for you."
+
+**Rowboat:**  
+*Transcribes, refines, and structures*
+
+```markdown
+# Draft Response
+
+Subject: API Integration - Ready for Testing
+
+Hi Monica,
+
+Following up on our conversation last week about the API integration 
+timeline. Our team has completed the initial implementation and we're 
+ready to begin testing.
+
+Could we schedule a call this week to walk through the setup? 
+Let me know what times work best for you.
+
+Best,
+[Your name]
+```
+
+## Voice Meeting Prep
+
+**Workflow:**
+
+**You:** "Prep me for my 2pm meeting" *(via voice)*
+
+**Rowboat:**  
+*Creates meeting brief with attendee context*
+
+**You:** "Read me the key points" *(while driving, getting coffee, etc.)*
+
+**Rowboat:** *(Text-to-speech)*  
+"Meeting with Sarah Chen at 2pm from Horizon Ventures. She's a partner who led investments in WorkOS and Segment. Your history: Jan 15 partner meeting with positive reception..."
+
+This creates a fully voice-driven meeting prep workflow.
+
+## Transcription Quality
+
+### What works well
+
+- Clear speech in quiet environments
+- Standard vocabulary and industry terms
+- Natural conversational pace
+- Proper nouns after first use (people, companies)
+
+### Tips for better accuracy
+
+<Steps>
+  <Step title="Speak clearly">
+    Use your normal speaking voice, but enunciate clearly. No need to speak unnaturally slowly.
+  </Step>
+  
+  <Step title="Minimize background noise">
+    Record in quiet environments when possible. Background noise reduces accuracy.
+  </Step>
+  
+  <Step title="Spell unusual names">
+    For unusual proper nouns: "I met with S-A-R-A-H C-H-E-N from Horizon Ventures"
+  </Step>
+  
+  <Step title="Provide context first">
+    "This is about the Q4 investor update" helps Rowboat understand the domain and improve accuracy.
+  </Step>
+</Steps>
+
+## Voice Command Patterns
+
+Effective voice commands follow these patterns:
+
+### Direct commands
+
+```text
+"Create a new note about [topic]"
+"Update the [document name] with this information"
+"Add this to [person name]'s note"
+"Search for notes about [topic]"
+```
+
+### Sequential workflows
+
+```text
+"Open the team meeting notes"
+[wait for confirmation]
+"Add these action items"
+[record voice memo]
+"Now add the decisions section"
+[record voice memo]
+```
+
+### Refinement requests
+
+```text
+"Make that more concise"
+"Add more detail about the timeline"
+"Rewrite that in a more formal tone"
+```
+
+## Integration with Other Features
+
+Voice works seamlessly with all Rowboat features:
+
+<CardGroup cols={2}>
+  <Card title="Meeting Prep" icon="calendar-check">
+    Voice request meeting briefs and have key points read back to you.
+  </Card>
+  
+  <Card title="Email Drafting" icon="envelope">
+    Dictate email responses that Rowboat drafts with full context.
+  </Card>
+  
+  <Card title="Document Collaboration" icon="file-pen">
+    Add content to documents via voice, edit hands-free.
+  </Card>
+  
+  <Card title="Knowledge Updates" icon="database">
+    Update person notes, project status, and other entries by speaking.
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+### Record immediately after events
+
+Capture meeting notes, conversations, and insights while they're fresh:
+- Right after meetings
+- During commutes
+- Between appointments
+- During exercise or walks
+
+### Use voice for quantity, edit for quality
+
+Get ideas down quickly via voice, then:
+- Review transcriptions
+- Refine with text edits
+- Add structure and formatting
+- Cross-reference related notes
+
+### Create voice capture habits
+
+Build routines around voice input:
+- Daily standup: Voice record your daily plan
+- Post-meeting: 2-minute voice recap before next appointment
+- Evening review: Voice note key events from the day
+- Idea capture: Record thoughts immediately when they occur
+
+### Combine voice and text
+
+Don't force everything through voice:
+- Use voice for initial capture
+- Use text for precise edits
+- Use voice for long-form content
+- Use text for structured data
+
+## Privacy and Storage
+
+Voice memos and transcriptions:
+- Are processed locally when possible
+- Are not stored permanently in audio form by default
+- Can be deleted after transcription
+- Follow the same privacy model as your other Rowboat data
+
+<Tip>
+You control whether original audio files are kept or discarded after transcription. By default, only text transcriptions are saved.
+</Tip>
+
+## Technical Details
+
+Rowboat's voice system:
+- Uses modern speech-to-text APIs for accurate transcription
+- Supports multiple languages (English optimized)
+- Handles conversational speech patterns
+- Processes audio in real-time or from recordings
+- Works offline for basic transcription (quality may vary)
+
+## Related Features
+
+- [Meeting Prep](/use-cases/meeting-prep) - Voice-request meeting briefs
+- [Document Collaboration](/use-cases/document-collaboration) - Voice-driven document editing  
+- [Email Drafting](/use-cases/email-drafting) - Dictate email responses

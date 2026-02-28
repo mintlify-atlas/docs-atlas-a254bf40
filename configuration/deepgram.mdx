@@ -1,0 +1,190 @@
+---
+title: 'Voice Transcription'
+description: 'Enable voice notes with Deepgram'
+icon: 'microphone'
+---
+
+Rowboat supports voice notes through Deepgram's speech-to-text API. This allows you to record voice memos that automatically capture and update key takeaways in your knowledge graph.
+
+## Setup
+
+<Steps>
+  <Step title="Get Deepgram API Key">
+    1. Sign up at [Deepgram Console](https://console.deepgram.com/)
+    2. Create a new project or select an existing one
+    3. Navigate to **API Keys**
+    4. Click **Create New Key**
+    5. Copy your API key (starts with a long string)
+    
+    <Info>
+    Deepgram offers a generous free tier with 200 hours of transcription per month.
+    </Info>
+  </Step>
+
+  <Step title="Create Configuration File">
+    Create the configuration file at:
+    
+    ```bash
+    ~/.rowboat/config/deepgram.json
+    ```
+    
+    Add your API key:
+    
+    ```json
+    {
+      "apiKey": "your-deepgram-api-key-here"
+    }
+    ```
+  </Step>
+
+  <Step title="Restart Rowboat">
+    Restart Rowboat to load the new configuration. The voice note feature will automatically become available.
+  </Step>
+</Steps>
+
+## Configuration Schema
+
+<CodeGroup>
+```json deepgram.json
+{
+  "apiKey": "<your-deepgram-api-key>"
+}
+```
+
+```bash File Location
+~/.rowboat/config/deepgram.json
+```
+</CodeGroup>
+
+### Schema Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `apiKey` | string | Yes | Your Deepgram API key |
+
+## Using Voice Notes
+
+Once configured, you can record voice notes directly in Rowboat:
+
+1. Click the microphone icon in the sidebar
+2. Record your voice memo
+3. Stop recording when done
+4. Rowboat will:
+   - Transcribe your audio using Deepgram Nova 2
+   - Extract key information
+   - Update relevant notes in your knowledge graph
+
+<Info>
+Rowboat uses Deepgram's **Nova 2** model with smart formatting enabled for the best accuracy.
+</Info>
+
+## API Details
+
+### Endpoint
+
+Rowboat uses Deepgram's synchronous API:
+
+```
+https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true
+```
+
+### Features
+
+- **Model**: Nova 2 (Deepgram's latest and most accurate model)
+- **Smart Formatting**: Automatically formats punctuation, capitalization, and paragraphs
+- **Real-time**: Transcription happens in seconds
+
+## Privacy
+
+<Warning>
+**Audio Privacy**
+
+- Audio is sent to Deepgram's API for transcription
+- Deepgram does not store audio files by default (check their [privacy policy](https://deepgram.com/privacy))
+- Transcripts are stored locally in your Rowboat vault
+- If privacy is a concern, consider using a local transcription solution
+</Warning>
+
+## Troubleshooting
+
+### Voice note button not appearing
+
+1. Verify `deepgram.json` exists at `~/.rowboat/config/deepgram.json`
+2. Check that the `apiKey` field is present and not empty
+3. Restart Rowboat
+
+### "No apiKey in deepgram.json" error
+
+```json
+// ❌ Incorrect
+{
+  "key": "your-api-key"
+}
+
+// ✅ Correct
+{
+  "apiKey": "your-api-key"
+}
+```
+
+Make sure the field is named `apiKey`, not `key` or `api_key`.
+
+### "Deepgram API error: 401" (Unauthorized)
+
+- Your API key is invalid or expired
+- Generate a new key in the Deepgram Console
+- Update your `deepgram.json` with the new key
+
+### "Deepgram API error: 403" (Forbidden)
+
+- You may have exceeded your free tier limits
+- Check your usage in the Deepgram Console
+- Upgrade your plan if needed
+
+### Poor transcription quality
+
+- Speak clearly and at a moderate pace
+- Reduce background noise
+- Use a quality microphone if possible
+- Nova 2 performs best with clear audio at 16kHz or higher sample rate
+
+## Cost
+
+### Free Tier
+
+- **200 hours/month** of transcription
+- Nova 2 model included
+- No credit card required
+
+### Paid Plans
+
+If you exceed the free tier:
+- **Pay As You Go**: $0.0043/minute for Nova 2
+- **Growth Plan**: $0.0036/minute with commitment
+
+See [Deepgram Pricing](https://deepgram.com/pricing) for details.
+
+## Alternatives
+
+If you prefer not to use Deepgram, you can:
+
+1. **Local transcription**: Integrate Whisper.cpp or similar local models (requires custom integration)
+2. **Other APIs**: Rowboat currently only supports Deepgram, but you can request support for other providers
+3. **Manual entry**: Simply type your notes instead of recording them
+
+## API Key Security
+
+<Warning>
+**Keep your API key secure:**
+
+- Never commit `deepgram.json` to version control
+- Don't share your API key publicly
+- Rotate keys regularly
+- Use read-only keys when possible (Deepgram only requires read access for transcription)
+</Warning>
+
+## Additional Resources
+
+- [Deepgram Documentation](https://developers.deepgram.com/)
+- [Nova 2 Model Details](https://deepgram.com/product/nova-2)
+- [Smart Formatting](https://developers.deepgram.com/docs/smart-format)

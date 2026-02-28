@@ -1,0 +1,245 @@
+---
+title: Drafting Emails with Context
+description: Let Rowboat draft personalized email responses using your calendar and relationship history
+icon: envelope
+---
+
+Rowboat drafts email responses by pulling context from your knowledge base and calendar, ensuring every reply is personalized and informed by your relationship history.
+
+## How It Works
+
+Rowboat processes your inbox and creates contextual drafts:
+
+<Steps>
+  <Step title="Scan for new emails">
+    Rowboat reads emails from your `gmail_sync/` folder and tracks which ones it has already processed.
+  </Step>
+  
+  <Step title="Classify each email">
+    Emails are categorized as:
+    - **Draft needed**: Meeting requests, personal emails, business inquiries, follow-ups
+    - **Ignore**: Newsletters, marketing, automated notifications, spam
+  </Step>
+  
+  <Step title="Look up context">
+    Before drafting, Rowboat searches your knowledge base for:
+    - Notes about the sender (role, history, relationship)
+    - Their organization's information
+    - Related projects or topics
+    - Past interactions and commitments
+  </Step>
+  
+  <Step title="Check calendar">
+    For scheduling emails, Rowboat reviews your calendar to:
+    - Find available time slots
+    - Check for conflicts
+    - Propose specific meeting times
+  </Step>
+  
+  <Step title="Create the draft">
+    A personalized draft is written that:
+    - Matches the tone of the incoming email
+    - References past interactions naturally
+    - Provides direct answers or next steps
+    - Shows you remember the relationship
+  </Step>
+</Steps>
+
+## Example Usage
+
+<CodeGroup>
+```text Batch processing
+Draft responses to my new emails
+```
+
+```text Specific person
+Draft a reply to Monica's email
+```
+
+```text With context
+Draft an email to Akhilesh about the Rowboat project
+```
+</CodeGroup>
+
+<Tip>
+Rowboat asks clarifying questions when needed. If someone is involved in multiple projects, it will ask which topic you want to discuss rather than guessing.
+</Tip>
+
+## What You Get
+
+Each draft is saved as a markdown file in `pre-built/email-draft/drafts/` with this format:
+
+```markdown
+# Draft Response
+
+**Original Email ID:** 19048cf9c0317981
+**Original Subject:** RE: Q1 Planning Meeting
+**From:** sarah@horizonvc.com
+**Date Processed:** 2025-01-20
+
+---
+
+## Context Used
+
+- Calendar: Available Tuesday 2-4pm, Wednesday 10am-12pm
+- Memory: Sarah is partner at Horizon Ventures, last met Jan 15, 
+  asked for updated financial model
+
+---
+
+## Draft Response
+
+Subject: Re: Q1 Planning Meeting
+
+Hi Sarah,
+
+Tuesday at 2pm works great. I'll bring the updated financial model 
+we discussed — the one with the revised CAC breakdown by channel.
+
+Looking forward to continuing our conversation about the term sheet timeline.
+
+See you then,
+[Your name]
+
+---
+
+## Notes
+
+Referenced the open item from Jan 15 meeting about the financial model.
+Proposed specific time from available slots. Mentioned term sheet 
+timeline as a natural follow-up topic.
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="One draft, no options" icon="bullseye">
+    Rowboat is decisive. You get one well-crafted draft based on context, not multiple generic variants to choose from.
+  </Card>
+  
+  <Card title="Relationship memory" icon="brain">
+    Drafts reference past interactions and demonstrate you remember the relationship, not generic pleasantries.
+  </Card>
+  
+  <Card title="Smart filtering" icon="filter-circle-xmark">
+    Automatically ignores newsletters, marketing emails, and notifications so you only review what matters.
+  </Card>
+  
+  <Card title="Calendar integration" icon="calendar-days">
+    For scheduling requests, drafts include specific available times from your calendar.
+  </Card>
+</CardGroup>
+
+## Classification Logic
+
+### Emails that get drafts
+
+- Meeting requests or scheduling emails
+- Personal emails from known contacts
+- Legitimate business inquiries
+- Follow-ups on existing conversations
+- Emails requesting information or action
+
+### Emails that are ignored
+
+- Newsletters (unsubscribe links, bulk sender indicators)
+- Marketing emails (promotional language, no-reply senders)
+- Automated notifications (GitHub, Jira, Slack, shipping updates)
+- Spam or irrelevant cold outreach
+- Outbound emails where you are the sender with no reply
+
+<Tip>
+Rowboat is conservative with the ignore list. When in doubt, it creates a draft with a note explaining any ambiguity.
+</Tip>
+
+## Processing Summary
+
+After processing, Rowboat provides a summary:
+
+```markdown
+## Processing Summary
+
+**Emails Scanned:** 24
+**Drafts Created:** 3
+**Ignored:** 21
+
+### Drafts Created:
+- 19048cf9c0317981: RE: Q1 Planning Meeting - Scheduling response with calendar check
+- 19048d12a0421bc3: Introduction to Product - Business inquiry from known contact
+- 19048e45f1532cd7: Follow-up on proposal - Referenced past meeting context
+
+### Ignored:
+- Newsletter from TechCrunch
+- GitHub notification: PR merged
+- Marketing email from SaaS vendor
+...
+```
+
+## State Management
+
+Rowboat tracks processing state in `pre-built/email-draft/state.json`:
+
+```json
+{
+  "lastProcessedTimestamp": "2025-01-20T10:30:00Z",
+  "drafted": ["19048cf9c0317981", "19048d12a0421bc3"],
+  "ignored": ["spam_id_1", "newsletter_id_2"]
+}
+```
+
+This ensures:
+- No email is processed twice
+- You can run batch processing repeatedly
+- State persists across sessions
+
+## Best Practices
+
+### Review before sending
+
+Rowboat creates drafts but never sends emails automatically. Always review:
+- Tone and formality level
+- Specific details and dates
+- Attachments or additional context needed
+
+### Clarify when needed
+
+If Rowboat asks which project or context to use, take a moment to specify. This leads to much better drafts than letting it guess.
+
+### Keep knowledge base current
+
+The better your person and organization notes, the better your drafts. Update notes after:
+- Important conversations
+- Project milestones
+- Changes in relationships or roles
+
+### Run periodically
+
+Rather than drafting every single email in real-time, run email drafting:
+- Once or twice daily during work hours
+- After important meetings when follow-ups are expected
+- Before batch email sessions
+
+## Data Sources
+
+<CardGroup cols={2}>
+  <Card title="Gmail sync" icon="inbox">
+    Emails are read from the `gmail_sync/` folder where your email sync stores messages.
+  </Card>
+  
+  <Card title="Knowledge base" icon="database">
+    Person and organization notes from `knowledge/` provide relationship context for personalized drafts.
+  </Card>
+  
+  <Card title="Calendar sync" icon="calendar">
+    Calendar events from `calendar_sync/` help with scheduling responses and availability checks.
+  </Card>
+  
+  <Card title="Draft storage" icon="folder">
+    Drafts are saved in `pre-built/email-draft/drafts/` for your review and editing.
+  </Card>
+</CardGroup>
+
+## Related Features
+
+- [Meeting Prep](/use-cases/meeting-prep) - Prepare for meetings referenced in emails
+- [Document Collaboration](/use-cases/document-collaboration) - Update knowledge base notes with email insights

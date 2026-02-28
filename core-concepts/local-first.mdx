@@ -1,0 +1,380 @@
+---
+title: 'Local-First Architecture'
+description: 'Privacy and data ownership by design'
+icon: 'shield-halved'
+---
+
+Rowboat is built with a local-first philosophy: **your data stays on your machine**. All processing, storage, and AI inference happen locally, giving you complete control and privacy.
+
+## Core Principles
+
+<CardGroup cols={2}>
+  <Card title="Local Storage" icon="hard-drive">
+    All your emails, meetings, and notes are stored in `~/.rowboat/` on your machine
+  </Card>
+  
+  <Card title="No Cloud Lock-in" icon="lock-open">
+    Your knowledge graph uses standard markdown files - readable and portable
+  </Card>
+  
+  <Card title="Privacy First" icon="eye-slash">
+    Data never leaves your machine unless you explicitly share it
+  </Card>
+  
+  <Card title="You Own Your Data" icon="user-shield">
+    Plain text files you can read, edit, search, and back up however you want
+  </Card>
+</CardGroup>
+
+## Data Storage
+
+### Directory Structure
+
+Rowboat stores everything in a well-organized directory:
+
+```bash
+~/.rowboat/
+├── agents/              # Custom agent definitions
+├── gmail_sync/          # Synced email threads
+│   ├── attachments/     # Email attachments
+│   └── *.md             # Thread markdown files
+├── fireflies_transcripts/ # Meeting transcripts from Fireflies
+├── granola_notes/       # Meeting notes from Granola
+├── knowledge/           # Your knowledge graph
+│   ├── People/
+│   ├── Organizations/
+│   ├── Projects/
+│   ├── Topics/
+│   ├── Voice Memos/
+│   └── .git/            # Version history
+├── config/              # Application configuration
+│   ├── models.json      # LLM provider settings
+│   ├── note_creation.json # Strictness settings
+│   └── google_oauth.json  # OAuth tokens (encrypted)
+├── logs/
+│   └── services.jsonl   # Service activity logs
+└── runs/                # Agent execution logs
+```
+
+<Note>
+All files are human-readable markdown or JSON. You can browse, search, and edit them with any text editor.
+</Note>
+
+### Markdown Format
+
+Notes use Obsidian-compatible markdown with frontmatter:
+
+```markdown
+# John Doe
+
+**Email:** john@example.com
+**Organization:** [[Acme Corp]]
+**Role:** Engineering Manager
+**Aliases:** John, JD
+
+## Context
+
+- First met: 2026-01-15 (email thread about API integration)
+- Working on: [[Project Atlas]]
+- Interested in: distributed systems, Kubernetes
+
+## Recent Interactions
+
+### 2026-02-15: Meeting - Architecture Review
+
+Discussed scaling challenges for the new API gateway...
+
+### 2026-02-01: Email - Q1 Planning
+
+Proposed timeline for Atlas launch...
+```
+
+**Benefits:**
+- Open format (works with Obsidian, VS Code, etc.)
+- Human-readable
+- Grep-able
+- Version controllable with git
+- Easy to backup
+
+## Version Control
+
+Rowboat automatically tracks all changes to your knowledge base using Git:
+
+```bash
+cd ~/.rowboat/knowledge
+git log --oneline
+
+# Example output:
+a3f5e9d Knowledge update (Rowboat)
+b2c4d8e Knowledge update (Rowboat)
+c1e3f7g Knowledge update (Rowboat)
+```
+
+<Accordion title="How Versioning Works">
+```typescript
+export async function commitAll(
+  message: string,
+  author: string
+): Promise<void> {
+  const git = simpleGit(KNOWLEDGE_DIR);
+  
+  // Initialize repo if needed
+  if (!fs.existsSync(path.join(KNOWLEDGE_DIR, '.git'))) {
+    await git.init();
+  }
+  
+  // Stage all changes
+  await git.add('.');
+  
+  // Commit with timestamp
+  await git.commit(message, {
+    '--author': `${author} <${author}@rowboat.local>`
+  });
+}
+```
+
+Every batch of entity updates creates a commit, providing:
+- Complete audit trail
+- Ability to revert changes
+- Debugging information
+- Export capability
+</Accordion>
+
+## AI Model Configuration
+
+Rowboat supports multiple LLM providers - **you choose where to send requests**:
+
+<Tabs>
+  <Tab title="Cloud Providers">
+    ```json
+    {
+      "provider": {
+        "flavor": "anthropic",
+        "apiKey": "sk-ant-..."
+      },
+      "model": "claude-3-5-sonnet-20241022"
+    }
+    ```
+    
+    **Supported providers:**
+    - Anthropic (Claude)
+    - OpenAI (GPT-4, etc.)
+    - Google (Gemini)
+    - OpenRouter (access to many models)
+    
+    <Info>
+    When using cloud providers, only the prompt and conversation context are sent. Your stored files and notes never leave your machine.
+    </Info>
+  </Tab>
+  
+  <Tab title="Local Models">
+    ```json
+    {
+      "provider": {
+        "flavor": "ollama",
+        "baseURL": "http://localhost:11434"
+      },
+      "model": "llama3.1:70b"
+    }
+    ```
+    
+    **Benefits of local models:**
+    - 100% private - nothing leaves your machine
+    - No API costs
+    - Works offline
+    - Full control over model choice
+    
+    **Popular local options:**
+    - Ollama (easiest setup)
+    - LM Studio
+    - LocalAI
+    - vLLM
+    
+    <Warning>
+    Local models require significant compute resources. For knowledge graph building, we recommend at least 70B parameter models for good results.
+    </Warning>
+  </Tab>
+  
+  <Tab title="Self-Hosted">
+    ```json
+    {
+      "provider": {
+        "flavor": "openai-compatible",
+        "baseURL": "https://your-inference-server.com/v1",
+        "apiKey": "your-key"
+      },
+      "model": "custom-model-name"
+    }
+    ```
+    
+    **Self-hosted options:**
+    - Deploy models on your own infrastructure
+    - Use OpenAI-compatible APIs (vLLM, Ollama, etc.)
+    - Full control over data flow
+    - Can be on-premises or in your VPC
+  </Tab>
+</Tabs>
+
+**Configuration file:** `~/.rowboat/config/models.json`
+
+## OAuth & Credentials
+
+Rowboat needs OAuth access for Gmail and meeting tools:
+
+### How OAuth Works
+
+<Steps>
+  <Step title="Initial authorization">
+    You authorize Rowboat via OAuth flow (opens browser)
+  </Step>
+  <Step title="Token storage">
+    Access and refresh tokens are stored in `~/.rowboat/config/google_oauth.json`
+  </Step>
+  <Step title="Token refresh">
+    Rowboat automatically refreshes expired tokens without re-authorization
+  </Step>
+  <Step title="Scope limiting">
+    Only requests minimal required scopes (e.g., `gmail.readonly`)
+  </Step>
+</Steps>
+
+<Accordion title="OAuth Token Storage">
+```json
+{
+  "access_token": "ya29.a0AfH6...",
+  "refresh_token": "1//0gX7...",
+  "scope": "https://www.googleapis.com/auth/gmail.readonly",
+  "token_type": "Bearer",
+  "expiry_date": 1709136000000
+}
+```
+
+**Security:**
+- Tokens are stored with file permissions 0600 (owner read/write only)
+- Never logged or transmitted except to authorized APIs
+- Can be revoked at any time through Google account settings
+</Accordion>
+
+### Scopes Requested
+
+| Service | Scope | Purpose |
+|---------|-------|----------|
+| Gmail | `gmail.readonly` | Read email threads for knowledge graph |
+| Fireflies | API Key | Fetch meeting transcripts |
+| Granola | API Key | Fetch meeting notes |
+
+<Warning>
+Rowboat only requests read-only access. It **never** sends, modifies, or deletes your emails or meetings.
+</Warning>
+
+## Data Portability
+
+### Export Your Data
+
+Since everything is markdown and JSON:
+
+```bash
+# Backup entire knowledge base
+tar -czf rowboat-backup.tar.gz ~/.rowboat/
+
+# Export knowledge graph only
+tar -czf knowledge-backup.tar.gz ~/.rowboat/knowledge/
+
+# Copy to cloud storage (optional)
+rsync -av ~/.rowboat/ /path/to/cloud/backup/
+```
+
+### Use with Other Tools
+
+<CardGroup cols={3}>
+  <Card title="Obsidian" icon="book">
+    Open `~/.rowboat/knowledge/` as an Obsidian vault
+  </Card>
+  
+  <Card title="VS Code" icon="code">
+    Browse and edit notes with full markdown support
+  </Card>
+  
+  <Card title="Command Line" icon="terminal">
+    Use grep, ripgrep, or any text tool to search
+  </Card>
+</CardGroup>
+
+**Example searches:**
+
+```bash
+# Find all mentions of a project
+grep -r "Project Atlas" ~/.rowboat/knowledge/
+
+# List all people from a specific organization  
+grep "Organization: Acme" ~/.rowboat/knowledge/People/*.md
+
+# Search email threads
+rg "API integration" ~/.rowboat/gmail_sync/
+```
+
+## Privacy Considerations
+
+### What Stays Local
+
+✅ **Always local:**
+- All synced emails and meetings
+- Your entire knowledge graph
+- Service logs
+- Configuration files
+- OAuth refresh tokens
+
+### What Gets Sent to LLM APIs
+
+⚠️ **When using cloud LLMs:**
+- Agent prompts and instructions
+- Specific conversation context
+- Entities being processed in current batch
+
+<Info>
+**Batch processing limits exposure:** Only the current batch (10 files) is sent to the LLM at a time, not your entire knowledge base.
+</Info>
+
+❌ **Never sent:**
+- Your full email archive
+- Your complete knowledge graph
+- Unrelated notes or conversations
+
+### Using 100% Local Setup
+
+For complete privacy:
+
+1. **Use local LLM** (Ollama, LM Studio)
+2. **Disable telemetry** (Rowboat has none by default)
+3. **Air-gapped option**: Sync data externally, then disconnect
+
+## Open Source Benefits
+
+<CardGroup cols={2}>
+  <Card title="Audit the Code" icon="magnifying-glass">
+    Review exactly how your data is processed
+  </Card>
+  
+  <Card title="Self-Host Everything" icon="server">
+    Run Rowboat on your own infrastructure
+  </Card>
+  
+  <Card title="Customize Freely" icon="wrench">
+    Modify agents, storage, or processing to your needs
+  </Card>
+  
+  <Card title="No Vendor Lock-in" icon="door-open">
+    Standard formats mean you can migrate anytime
+  </Card>
+</CardGroup>
+
+**Source code:** [github.com/rowboat-ai/rowboat](https://github.com/rowboat-ai/rowboat)
+
+## Source Code Reference
+
+Key implementation files:
+
+- `apps/x/packages/core/src/config/config.ts` - WorkDir and configuration paths
+- `apps/x/packages/core/src/knowledge/version_history.ts` - Git versioning
+- `apps/x/packages/core/src/models/models.ts` - LLM provider configuration
+- `apps/x/packages/core/src/knowledge/google-client-factory.ts` - OAuth handling

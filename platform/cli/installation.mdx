@@ -1,0 +1,334 @@
+---
+title: Installation
+description: Install and configure the rowboatx CLI tool
+---
+
+## Prerequisites
+
+- **Node.js**: Version 18.0.0 or higher
+- **npm**: Version 8.0.0 or higher (comes with Node.js)
+- **Operating System**: macOS, Linux, or Windows
+
+## Installation Methods
+
+### NPM (Recommended)
+
+Install globally using npm:
+
+```bash
+npm install -g @rowboatlabs/rowboatx
+```
+
+Verify the installation:
+
+```bash
+rowboatx --version
+# Output: 0.16.0
+```
+
+### From Source
+
+Clone and build from source:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/rowboatlabs/rowboat.git
+    cd rowboat/apps/cli
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Build the project">
+    ```bash
+    pnpm build
+    ```
+  </Step>
+
+  <Step title="Link globally">
+    ```bash
+    npm link
+    ```
+  </Step>
+</Steps>
+
+## Initial Configuration
+
+### Configure LLM Provider
+
+After installation, configure your LLM provider:
+
+```bash
+rowboatx model-config
+```
+
+This launches an interactive wizard:
+
+<Steps>
+  <Step title="Select provider type">
+    Choose from available providers:
+    
+    <CodeGroup>
+    ```text OpenAI
+    1. openai
+    2. anthropic
+    3. google
+    4. ollama
+    5. openai-compatible
+    6. openrouter
+    7. aigateway
+    8. rowboat [free]
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Enter provider details">
+    Provide configuration based on the selected provider:
+    
+    <ParamField path="Provider Name" type="string" required>
+      Alias for this provider configuration (e.g., "my-openai")
+    </ParamField>
+    
+    <ParamField path="Base URL" type="string">
+      API endpoint URL. Defaults to provider's standard endpoint.
+      
+      **Examples:**
+      - OpenAI: `https://api.openai.com/v1`
+      - Ollama: `http://localhost:11434`
+      - Custom: `http://localhost:8080/v1`
+    </ParamField>
+    
+    <ParamField path="API Key" type="string">
+      Authentication key for the provider. Leave blank to use environment variable.
+      
+      **Environment variables:**
+      - OpenAI: `OPENAI_API_KEY`
+      - Anthropic: `ANTHROPIC_API_KEY`
+      - Google: `GOOGLE_GENERATIVE_AI_API_KEY`
+    </ParamField>
+    
+    <ParamField path="Model" type="string" required>
+      Model identifier to use with this provider.
+      
+      **Examples:**
+      - OpenAI: `gpt-5.1`, `gpt-4o`
+      - Anthropic: `claude-sonnet-4-5`, `claude-opus-4`
+      - Google: `gemini-2.5-pro`
+      - Ollama: `llama3.1`, `mistral`
+    </ParamField>
+  </Step>
+
+  <Step title="Verify configuration">
+    Configuration is saved to `~/.rowboat/config/models.json`:
+    
+    ```json
+    {
+      "providers": {
+        "my-openai": {
+          "flavor": "openai",
+          "apiKey": "sk-...",
+          "baseURL": "https://api.openai.com/v1"
+        }
+      },
+      "defaults": {
+        "provider": "my-openai",
+        "model": "gpt-5.1"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Configure MCP Servers (Optional)
+
+To use MCP (Model Context Protocol) servers, create `~/.rowboat/config/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/directory"],
+      "env": {}
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  }
+}
+```
+
+## Provider-Specific Setup
+
+### OpenAI
+
+<CodeGroup>
+```bash Environment Variable
+export OPENAI_API_KEY="sk-..."
+rowboatx model-config
+```
+
+```bash Direct Configuration
+rowboatx model-config
+# Select: openai
+# Enter API key when prompted
+# Model: gpt-5.1
+```
+</CodeGroup>
+
+### Anthropic
+
+<CodeGroup>
+```bash Environment Variable
+export ANTHROPIC_API_KEY="sk-ant-..."
+rowboatx model-config
+```
+
+```bash Direct Configuration
+rowboatx model-config
+# Select: anthropic
+# Enter API key when prompted
+# Model: claude-sonnet-4-5
+```
+</CodeGroup>
+
+### Ollama (Local)
+
+<Steps>
+  <Step title="Install Ollama">
+    Download from [ollama.ai](https://ollama.ai) or install via package manager:
+    
+    ```bash
+    # macOS
+    brew install ollama
+    
+    # Linux
+    curl -fsSL https://ollama.ai/install.sh | sh
+    ```
+  </Step>
+
+  <Step title="Pull a model">
+    ```bash
+    ollama pull llama3.1
+    ```
+  </Step>
+
+  <Step title="Configure rowboatx">
+    ```bash
+    rowboatx model-config
+    # Select: ollama
+    # Base URL: http://localhost:11434 (default)
+    # Model: llama3.1
+    ```
+  </Step>
+</Steps>
+
+### Google AI
+
+```bash
+export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
+rowboatx model-config
+# Select: google
+# Model: gemini-2.5-pro
+```
+
+## Verification
+
+Test your installation:
+
+```bash
+# Run default agent
+rowboatx --input "Hello, what can you help me with?"
+
+# Check configuration
+cat ~/.rowboat/config/models.json
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Command not found: rowboatx">
+    Ensure the global npm bin directory is in your PATH:
+    
+    ```bash
+    npm config get prefix
+    # Add <prefix>/bin to your PATH
+    export PATH="$(npm config get prefix)/bin:$PATH"
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    Fix npm permissions or use a Node version manager:
+    
+    ```bash
+    # Option 1: Fix npm permissions
+    mkdir -p ~/.npm-global
+    npm config set prefix '~/.npm-global'
+    export PATH=~/.npm-global/bin:$PATH
+    
+    # Option 2: Use nvm
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    nvm install 20
+    npm install -g @rowboatlabs/rowboatx
+    ```
+  </Accordion>
+
+  <Accordion title="API key not being recognized">
+    Verify environment variables are set:
+    
+    ```bash
+    echo $OPENAI_API_KEY
+    # Should output your key
+    
+    # Or configure directly
+    rowboatx model-config
+    ```
+  </Accordion>
+
+  <Accordion title="MCP servers not connecting">
+    Check MCP server configuration:
+    
+    ```bash
+    # Verify mcp.json syntax
+    cat ~/.rowboat/config/mcp.json | jq .
+    
+    # Test server command manually
+    npx -y @modelcontextprotocol/server-filesystem /tmp
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Updating
+
+Update to the latest version:
+
+```bash
+npm update -g @rowboatlabs/rowboatx
+```
+
+## Uninstallation
+
+Remove the CLI:
+
+```bash
+# Uninstall package
+npm uninstall -g @rowboatlabs/rowboatx
+
+# Optionally remove configuration
+rm -rf ~/.rowboat
+```
+
+## Next Steps
+
+<Card title="Command Reference" icon="terminal" href="/platform/cli/commands">
+  Explore all available commands and options
+</Card>

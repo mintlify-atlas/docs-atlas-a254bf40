@@ -1,0 +1,283 @@
+---
+title: Agent System Overview
+description: Introduction to the Rowboat agent system architecture and core concepts
+---
+
+The Rowboat agent system provides a flexible, multi-agent architecture for building autonomous workflows powered by large language models.
+
+## Core Concepts
+
+### What are Agents?
+
+Agents are autonomous units that execute tasks using LLMs, tools, and instructions. Each agent:
+
+- Runs with a specific **language model** (GPT-4, Claude, Gemini, etc.)
+- Has access to **tools** (builtin commands, MCP integrations, or other agents)
+- Follows **instructions** defined in Markdown
+- Maintains **message history** and conversation state
+- Can **call other agents** as tools for complex workflows
+
+### Agent Types
+
+<Accordion title="Interactive Agents">
+Interactive agents work directly with users in real-time conversations. The main interactive agent is the **Copilot**, which:
+
+- Responds to user messages in the UI
+- Has access to workspace operations (file management, code execution)
+- Can load specialized skills on-demand
+- Executes MCP tools directly on behalf of users
+
+Location: `apps/x/packages/core/src/application/assistant/agent.ts:14`
+</Accordion>
+
+<Accordion title="Background Agents">
+Background agents run autonomously on schedules without user interaction. They:
+
+- Execute on **cron schedules**, **time windows**, or **once** at specific times
+- Run unattended workflows (email digests, data sync, monitoring)
+- Are configured in `~/.rowboat/config/agent-schedule.json`
+- Stored as Markdown files in `agents/` directory
+
+See [Background Agents](/platform/agents/background-agents) for details.
+</Accordion>
+
+<Accordion title="Multi-Agent Workflows">
+Agents can orchestrate other agents by declaring them as tools:
+
+```yaml
+tools:
+  summarizer:
+    type: agent
+    name: summarizer_agent
+```
+
+This enables:
+- Task delegation to specialized agents
+- Complex multi-step workflows
+- Reusable agent components
+- Data flow through tool calls and responses
+</Accordion>
+
+## Agent Definition Format
+
+Agents are defined as **Markdown files with YAML frontmatter**:
+
+```markdown
+---
+model: gpt-5.1
+provider: openai
+tools:
+  bash:
+    type: builtin
+    name: executeCommand
+  search:
+    type: mcp
+    name: firecrawl_search
+    description: Search the web
+    mcpServerName: firecrawl
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+        - query
+---
+# Research Agent
+
+You are a research agent. Use the search tool to find information,
+then execute bash commands to save results.
+
+Be thorough and cite your sources.
+```
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `model` | No | Model ID (e.g., `gpt-5.1`, `claude-sonnet-4-5`) |
+| `provider` | No | Provider alias from `models.json` |
+| `tools` | No | Object mapping tool keys to tool definitions |
+
+### Instructions (Body)
+
+The Markdown content after the frontmatter contains the agent's system instructions. Use standard Markdown formatting to structure guidance, examples, and behavioral rules.
+
+## Tool Types
+
+<Accordion title="Builtin Tools">
+Internal Rowboat capabilities:
+
+```yaml
+bash:
+  type: builtin
+  name: executeCommand
+```
+
+Common builtin tools:
+- `executeCommand` - Run shell commands
+- `workspace-readFile`, `workspace-writeFile` - File operations
+- `workspace-readdir`, `workspace-mkdir` - Directory operations
+- `analyzeAgent` - Inspect agent structure
+- `listMcpServers`, `listMcpTools`, `executeMcpTool` - MCP integration
+- `loadSkill` - Load skill definitions
+
+Location: `apps/x/packages/core/src/application/lib/builtin-tools.ts:183`
+</Accordion>
+
+<Accordion title="MCP Tools">
+External capabilities from Model Context Protocol servers:
+
+```yaml
+search:
+  type: mcp
+  name: firecrawl_search
+  description: Search the web
+  mcpServerName: firecrawl
+  inputSchema:
+    type: object
+    properties:
+      query:
+        type: string
+        description: Search query
+    required:
+      - query
+```
+
+Required fields:
+- `type`: Must be "mcp"
+- `name`: Exact tool name from MCP server
+- `description`: What the tool does
+- `mcpServerName`: Server name from `config/mcp.json`
+- `inputSchema`: Full JSON Schema for parameters
+
+Use `listMcpTools` to discover available tools and their schemas.
+</Accordion>
+
+<Accordion title="Agent Tools">
+Reference other agents to build workflows:
+
+```yaml
+summarizer:
+  type: agent
+  name: summarizer_agent
+```
+
+The target agent file must exist (e.g., `agents/summarizer_agent.md`). When called, the agent receives the input message and returns its final response as tool output.
+</Accordion>
+
+## Agent State Management
+
+The agent runtime maintains state throughout execution:
+
+<Info>
+**AgentState** tracks messages, tool calls, permissions, and subflow states.
+
+Location: `apps/x/packages/core/src/agents/runtime.ts:484`
+</Info>
+
+### State Properties
+
+- `messages` - Full conversation history
+- `agent` - Loaded agent definition
+- `toolCallIdMap` - Maps tool call IDs to tool call details
+- `pendingToolCalls` - Tool calls awaiting execution
+- `pendingToolPermissionRequests` - Commands awaiting approval
+- `pendingAskHumanRequests` - Questions awaiting user response
+- `subflowStates` - State for agent-tool executions
+- `sessionAllowedCommands` - Commands approved for session
+
+## Execution Flow
+
+1. **Load agent** - Parse Markdown file and extract configuration
+2. **Build tools** - Map tool definitions to executable functions
+3. **Create provider** - Initialize LLM provider and model
+4. **Run loop** - Execute agent logic:
+   - Execute pending tool calls
+   - Check for pending permissions or ask-human requests
+   - Dequeue user messages
+   - Run LLM turn with current message history
+   - Process tool calls from LLM response
+   - Repeat until completion
+
+Location: `apps/x/packages/core/src/agents/runtime.ts:672`
+
+## Skill System
+
+Skills provide specialized guidance for specific tasks. Agents can load skills on-demand to access domain-specific instructions.
+
+<CodeGroup>
+```typescript Available Skills
+// Load a skill
+const skill = resolveSkill("web-search");
+
+// Available skills:
+// - web-search
+// - slack
+// - background-agents
+// - builtin-tools
+// - mcp-integration
+// - doc-collab
+// - draft-emails
+// - meeting-prep
+// - organize-files
+// - create-presentations
+// - deletion-guardrails
+```
+
+```typescript Skill Catalog
+import { skillCatalog } from "@x/core/skills";
+
+// Markdown catalog of all skills
+console.log(skillCatalog);
+```
+</CodeGroup>
+
+Location: `apps/x/packages/core/src/application/assistant/skills/index.ts:1`
+
+See [Skills](/platform/agents/skills) for details.
+
+## Security
+
+### Command Filtering
+
+Commands executed via `executeCommand` are filtered through `~/.rowboat/config/security.json`:
+
+```json
+{
+  "allowedCommands": [
+    "git",
+    "npm",
+    "node",
+    "curl"
+  ]
+}
+```
+
+Blocked commands return exit code 126.
+
+Location: `apps/x/packages/core/src/application/lib/command-executor.ts:15`
+
+### Permission Requests
+
+Certain operations require user approval:
+
+- **Tool permissions** - Approval for executing potentially dangerous commands
+- **Ask human** - Explicit user input during execution
+- **Session scope** - Approve command for entire session
+
+Location: `apps/x/packages/core/src/agents/runtime.ts:627`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Runtime Architecture" icon="microchip" href="/platform/agents/runtime">
+    Explore the agent runtime implementation
+  </Card>
+  <Card title="Background Agents" icon="clock" href="/platform/agents/background-agents">
+    Learn about scheduled agent execution
+  </Card>
+  <Card title="Skills" icon="book" href="/platform/agents/skills">
+    Discover available skills and how to use them
+  </Card>
+</CardGroup>

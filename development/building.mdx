@@ -1,0 +1,379 @@
+---
+title: Building and Packaging
+description: Build the Electron app for development and production
+---
+
+Rowboat uses a multi-stage build system with TypeScript compilation, esbuild bundling, and Electron Forge for packaging.
+
+## Build System Overview
+
+The build system uses different tools for different parts:
+
+| Component | Tool | Purpose |
+|-----------|------|----------|
+| Shared package | TypeScript | Compile to JS + type definitions |
+| Core package | TypeScript | Compile to JS + type definitions |
+| Main process | TypeScript + esbuild | Compile then bundle to single file |
+| Renderer | Vite | Bundle React app |
+| Packaging | Electron Forge | Create distributable app |
+
+<Note>
+  **Package manager**: pnpm is required for the `workspace:*` protocol used in the monorepo.
+</Note>
+
+## Development Build
+
+### Quick Start
+
+<Steps>
+  <Step title="Install dependencies">
+    ```bash
+    cd apps/x
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Build workspace packages">
+    ```bash
+    npm run deps
+    ```
+    Builds: `shared` → `core` → `preload`
+  </Step>
+
+  <Step title="Start development mode">
+    ```bash
+    npm run dev
+    ```
+    Starts Vite dev server and Electron with hot-reload.
+  </Step>
+</Steps>
+
+### Available Scripts
+
+```bash
+cd apps/x
+
+# Development
+npm run dev           # Build deps + start app
+npm run deps          # Build shared → core → preload
+npm run lint          # Run ESLint
+npm run lint:fix      # Fix ESLint issues
+
+# Individual builds
+npm run shared        # Build @x/shared
+npm run core          # Build @x/core
+npm run preload       # Build preload scripts
+npm run renderer      # Start Vite dev server
+npm run main          # Build and start main process
+```
+
+## Build Order
+
+Packages must be built in dependency order:
+
+```
+shared (no dependencies)
+   ↓
+core (depends on shared)
+   ↓
+preload (depends on shared)
+   ↓
+renderer (depends on shared)
+main (depends on shared, core)
+```
+
+<Warning>
+  Always build `shared` before `core`, and both before `main`. The `npm run deps` command handles this automatically.
+</Warning>
+
+### Why This Order?
+
+Each package depends on type definitions from upstream packages:
+
+```typescript
+// packages/core/src/index.ts
+import { SomeType } from '@x/shared'  // Must be built first
+
+// apps/main/src/main.ts
+import { CoreService } from '@x/core'  // Must be built after shared
+```
+
+## Main Process Bundle
+
+The main process uses a two-stage build:
+
+### Stage 1: TypeScript Compilation
+
+```bash
+cd apps/x/apps/main
+npm run build  # Runs: tsc && node bundle.mjs
+```
+
+TypeScript compiles `src/` to intermediate JavaScript with:
+
+- Target: ES2022
+- Module: ESNext
+- Type definitions: Generated
+
+### Stage 2: esbuild Bundling
+
+The `bundle.mjs` script bundles everything into a single file:
+
+```javascript
+// apps/main/bundle.mjs (simplified)
+import esbuild from 'esbuild'
+
+await esbuild.build({
+  entryPoints: ['dist/main.js'],
+  bundle: true,
+  platform: 'node',
+  target: 'node18',
+  outfile: '.package/dist/main.cjs',
+  format: 'cjs',
+  external: ['electron']
+})
+```
+
+<Note>
+  **Why bundle?** pnpm uses symlinks for workspace packages. Electron Forge's dependency walker can't follow these symlinks. Bundling creates a single file with all code, eliminating the need for `node_modules` in the packaged app.
+</Note>
+
+## Renderer Bundle
+
+The renderer uses Vite for both development and production:
+
+### Development
+
+```bash
+cd apps/x/apps/renderer
+npm run dev  # Starts dev server on http://localhost:5173
+```
+
+Vite provides:
+- Hot module replacement (HMR)
+- React Fast Refresh
+- Instant updates
+
+### Production
+
+```bash
+cd apps/x/apps/renderer
+npm run build  # Builds to dist/
+```
+
+Vite outputs optimized assets:
+- Minified JavaScript
+- Code splitting
+- Hashed filenames for caching
+
+## Production Packaging
+
+Electron Forge creates distributable packages.
+
+### Package (No Installer)
+
+Creates an application bundle:
+
+<CodeGroup>
+```bash macOS
+cd apps/x/apps/main
+npm run package
+
+# Output: out/rowboat-darwin-arm64/Rowboat.app
+```
+
+```bash Windows
+cd apps/x/apps/main
+npm run package
+
+# Output: out/rowboat-win32-x64/
+```
+
+```bash Linux
+cd apps/x/apps/main
+npm run package
+
+# Output: out/rowboat-linux-x64/
+```
+</CodeGroup>
+
+### Make (With Installer)
+
+Creates installers for distribution:
+
+<CodeGroup>
+```bash macOS
+cd apps/x/apps/main
+npm run make
+
+# Output: out/make/Rowboat-0.1.0-arm64.dmg
+```
+
+```bash Windows
+cd apps/x/apps/main
+npm run make
+
+# Output: out/make/squirrel.windows/x64/Rowboat-0.1.0-Setup.exe
+```
+
+```bash Linux
+cd apps/x/apps/main
+npm run make
+
+# Output: out/make/Rowboat-0.1.0-x64.deb
+#         out/make/Rowboat-0.1.0-x64.rpm
+```
+</CodeGroup>
+
+### Forge Configuration
+
+Packaging is configured in `apps/main/forge.config.cjs`:
+
+```javascript
+module.exports = {
+  packagerConfig: {
+    name: 'Rowboat',
+    icon: './assets/icon',
+    osxSign: {},
+    osxNotarize: {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_PASSWORD,
+      teamId: process.env.APPLE_TEAM_ID
+    }
+  },
+  makers: [
+    { name: '@electron-forge/maker-dmg' },      // macOS
+    { name: '@electron-forge/maker-squirrel' }, // Windows
+    { name: '@electron-forge/maker-deb' },      // Debian/Ubuntu
+    { name: '@electron-forge/maker-rpm' }       // Fedora/RedHat
+  ]
+}
+```
+
+## Code Signing (macOS)
+
+For production builds with code signing, set these environment variables:
+
+```bash
+export APPLE_ID="your-apple-id@example.com"
+export APPLE_PASSWORD="app-specific-password"
+export APPLE_TEAM_ID="TEAM1234567"
+
+cd apps/x/apps/main
+npm run make
+```
+
+<Warning>
+  Code signing is only required for public distribution. Local development and testing don't require these variables.
+</Warning>
+
+### Generating App-Specific Password
+
+<Steps>
+  <Step title="Sign in to Apple ID">
+    Go to [appleid.apple.com](https://appleid.apple.com)
+  </Step>
+
+  <Step title="Navigate to Security">
+    Click "Sign-In and Security" → "App-Specific Passwords"
+  </Step>
+
+  <Step title="Generate password">
+    Click "+" to create a new app-specific password for "Electron Forge"
+  </Step>
+
+  <Step title="Save to environment">
+    ```bash
+    export APPLE_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+    ```
+  </Step>
+</Steps>
+
+## Build Troubleshooting
+
+### Workspace Dependencies Not Found
+
+```
+Error: Cannot find module '@x/shared'
+```
+
+**Solution**: Build dependencies first
+
+```bash
+cd apps/x
+npm run deps
+```
+
+### Main Process Not Updating
+
+**Problem**: Changes to main process don't appear in the app.
+
+**Solution**: Main process doesn't hot-reload. Restart the dev server:
+
+```bash
+# Stop with Ctrl+C, then:
+npm run dev
+```
+
+### Preload Script Not Loading
+
+**Problem**: Preload APIs not available in renderer.
+
+**Solution**: Rebuild preload scripts:
+
+```bash
+cd apps/x
+npm run preload
+npm run dev
+```
+
+### TypeScript Errors
+
+**Problem**: Type errors in IDE but code runs.
+
+**Solution**: Rebuild packages to regenerate type definitions:
+
+```bash
+cd apps/x
+npm run deps
+```
+
+### Clean Build
+
+If you encounter persistent issues, try a clean build:
+
+```bash
+cd apps/x
+
+# Remove all build outputs
+rm -rf packages/*/dist
+rm -rf apps/*/dist
+rm -rf apps/main/.package
+rm -rf node_modules
+
+# Reinstall and rebuild
+pnpm install
+npm run deps
+npm run dev
+```
+
+## Build Performance
+
+### Development
+
+- **Cold start**: ~15-30 seconds (includes `npm run deps`)
+- **Hot reload (renderer)**: Instant with Vite HMR
+- **Rebuild after changes**: Depends on what changed
+  - Renderer only: Instant (HMR)
+  - Preload/shared/core: ~5-10 seconds + restart
+  - Main process: ~5-10 seconds + restart
+
+### Production
+
+- **Package** (no installer): ~30-60 seconds
+- **Make** (with installer): ~60-120 seconds
+- **Code signing**: Adds ~30-60 seconds
+
+<Note>
+  Build times vary based on hardware and platform. Apple Silicon Macs are generally faster than Intel.
+</Note>

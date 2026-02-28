@@ -1,0 +1,318 @@
+---
+title: Working on Documents
+description: Collaborate with Rowboat to create, edit, and refine documents in your knowledge base
+icon: file-pen
+---
+
+Rowboat acts as your writing partner, helping you create and edit documents in your knowledge base with context from your notes, always working with the latest version and respecting your editing preferences.
+
+## How It Works
+
+<Steps>
+  <Step title="Choose your edit mode">
+    Before starting, Rowboat asks: "Should I make edits directly, or show you changes first for approval?"
+    - **Direct mode**: Edits happen immediately, confirmed after
+    - **Approval mode**: Changes are shown first, you approve before editing
+  </Step>
+  
+  <Step title="Find or create the document">
+    Rowboat searches thoroughly for documents using:
+    - Filename pattern matching (handles partial matches, different cases)
+    - Content search (finds docs mentioning the topic)
+    - Common variations (with/without hyphens, spaces, different capitalizations)
+    
+    If not found, Rowboat asks: "Shall I create [filename]?"
+  </Step>
+  
+  <Step title="Understand your request">
+    Rowboat identifies what you want to do:
+    - Direct edits (change title, add section, remove content)
+    - Content generation (write intro, draft summary)
+    - Review/feedback (what do you think, is this clear)
+    - Research-backed additions (add context about a person or company)
+  </Step>
+  
+  <Step title="Search for context">
+    When you mention people, companies, or projects, Rowboat:
+    - Searches your knowledge base for relevant notes
+    - Reads person, organization, and project files
+    - Extracts specific facts, dates, and details to include
+  </Step>
+  
+  <Step title="Execute changes">
+    In direct mode, changes happen immediately with brief confirmation.
+    In approval mode, changes are shown first:
+    ```markdown
+    I'll add this after the Overview section:
+    
+    ## Partnership with Acme Corp
+    [content based on knowledge...]
+    
+    Ok to add?
+    ```
+  </Step>
+</Steps>
+
+## Example Usage
+
+<CodeGroup>
+```text Start session
+Let's work on the investor update
+```
+
+```text Create new document
+Create a doc for the product roadmap
+```
+
+```text Make edit
+Add a section about our partnership with Acme Corp
+```
+
+```text Generate content
+Write an executive summary for this document
+```
+
+```text Get feedback
+What do you think about the tone of this?
+```
+</CodeGroup>
+
+## Edit Modes Explained
+
+### Direct Mode
+
+Best for: Faster workflow when you trust Rowboat's judgment
+
+**User:** "Add a section about the Q4 results"
+
+**Rowboat:** *Makes the edit immediately*  
+"Added the Q4 results section. Anything else?"
+
+### Approval Mode
+
+Best for: Important documents, or when you want more control
+
+**User:** "Add a section about Q4 results"
+
+**Rowboat:**  
+"I'll add this after the Overview section:
+```markdown
+## Q4 Results
+
+Revenue grew 45% QoQ to $2.1M ARR, driven by enterprise 
+expansion and the [[TechFlow]] partnership.
+```
+Ok to add?"
+
+**User:** "Yes"
+
+**Rowboat:** "Done. What's next?"
+
+<Tip>
+Rowboat strictly follows your chosen edit mode for the entire session. It won't switch without asking first.
+</Tip>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Always current" icon="rotate">
+    Before every response, Rowboat re-reads the document to work with the latest version, even if you edited it externally.
+  </Card>
+  
+  <Card title="Context-aware" icon="link">
+    When you mention people or companies, Rowboat searches your knowledge base and includes relevant facts and wiki-links.
+  </Card>
+  
+  <Card title="Concise collaboration" icon="comments">
+    No verbose explanations or unsolicited suggestions. Rowboat asks simple questions and makes targeted changes.
+  </Card>
+  
+  <Card title="Surgical edits" icon="scissors">
+    Changes only what's needed, preserving your voice and document structure.
+  </Card>
+</CardGroup>
+
+## Document Search Process
+
+Rowboat searches thoroughly before saying a document doesn't exist:
+
+<Steps>
+  <Step title="Pattern matching">
+    Search by name pattern to handle partial matches:
+    ```
+    knowledge/**/*roadmap*
+    ```
+  </Step>
+  
+  <Step title="Content search">
+    Search document contents for mentions of the topic:
+    ```
+    grep "roadmap" in knowledge/
+    ```
+  </Step>
+  
+  <Step title="Common variations">
+    Try different formats:
+    - With/without hyphens: "show-hn" vs "showhn" vs "show hn"
+    - Different capitalizations
+    - Common subfolders: `knowledge/`, `knowledge/Projects/`, `knowledge/Topics/`
+  </Step>
+</Steps>
+
+Only after all searches return nothing will Rowboat say the document doesn't exist.
+
+## Creating New Documents
+
+When creating a new document:
+
+<Steps>
+  <Step title="Simple confirmation">
+    Rowboat asks: "Shall I create knowledge/roadmap.md?"
+    
+    Default location is `knowledge/` root — no questions about folder structure.
+  </Step>
+  
+  <Step title="Minimal starting point">
+    Files are created with just a title:
+    ```markdown
+    # Product Roadmap
+    
+    ```
+    
+    No pre-populated outlines or assumed structure.
+  </Step>
+  
+  <Step title="Ask what's needed">
+    "Created. What would you like in this?"
+    
+    You guide the content, not Rowboat.
+  </Step>
+</Steps>
+
+<Warning>
+Rowboat never makes unsolicited edits. If you just say "let's work on the roadmap" without specifying what to do, Rowboat will ask: "What would you like to change?"
+</Warning>
+
+## Using Wiki-Links
+
+Rowboat automatically creates wiki-links to connect related notes:
+
+```markdown
+We're expanding the partnership with [[Acme Corp]] following 
+the successful pilot with [[Sarah Chen]]. The [[Q4 Enterprise]] 
+project will launch next month.
+```
+
+Wiki-links:
+- Use `[[Name]]` syntax for people, organizations, and projects
+- Only link to notes that exist or will be created
+- Make it easy to navigate between related information
+- Build a connected knowledge graph over time
+
+## Best Practices
+
+### Choose the right edit mode
+
+- **Use direct mode** when drafting new content or making routine updates
+- **Use approval mode** for important documents, final versions, or when learning Rowboat's style
+
+### Be specific about changes
+
+Instead of: "Improve this document"  
+Try: "Make the executive summary more concise" or "Add metrics to the results section"
+
+### Let Rowboat handle context
+
+When you mention a person or company, Rowboat will automatically:
+- Search your knowledge base
+- Pull relevant facts and history
+- Add wiki-links for navigation
+
+You don't need to provide the context yourself.
+
+### Work iteratively
+
+Collaborate in small steps:
+1. "Add a section about Q4 results"
+2. "Make the growth metrics more prominent"
+3. "Add context about the TechFlow deal"
+
+This gives you control and makes it easy to adjust direction.
+
+## Document Locations
+
+Documents are stored in `~/.rowboat/knowledge/` with subfolders:
+
+<CardGroup cols={2}>
+  <Card title="People" icon="user">
+    Notes about individuals: `knowledge/People/Sarah Chen.md`
+  </Card>
+  
+  <Card title="Organizations" icon="building">
+    Company and team information: `knowledge/Organizations/Acme Corp.md`
+  </Card>
+  
+  <Card title="Projects" icon="diagram-project">
+    Project documentation: `knowledge/Projects/Q4 Enterprise.md`
+  </Card>
+  
+  <Card title="Topics" icon="book">
+    Subject matter notes: `knowledge/Topics/Market Research.md`
+  </Card>
+</CardGroup>
+
+General documents can live at the root level: `knowledge/Investor Update.md`
+
+## Writing Style
+
+Rowboat matches your tone and style:
+
+### Preserves your voice
+
+- Surgical edits that change only what's needed
+- No reorganization unless explicitly asked
+- Maintains your document structure and flow
+
+### Uses markdown formatting
+
+- Headers for structure
+- Bullet points and numbered lists
+- Bold and italic for emphasis
+- Wiki-links for connections
+
+### Stays concise but complete
+
+- No unnecessary verbosity
+- Includes all relevant information
+- Focused on what matters
+
+## Example Session
+
+**User:** "Let's work on the investor update"
+
+**Rowboat:** "Should I make edits directly, or show you changes first?"
+
+**User:** "Directly is fine"
+
+**Rowboat:** *Searches and finds the document*  
+"Found knowledge/Investor Update Q1.md. What would you like to change?"
+
+**User:** "Add a section about our new partnership with Acme Corp"
+
+**Rowboat:** *Searches knowledge base for Acme Corp context, makes the edit*  
+"Added the partnership section with context from [[Acme Corp]] notes. Anything else?"
+
+**User:** "Make the metrics section more prominent"
+
+**Rowboat:** *Adjusts formatting and structure*  
+"Moved metrics to the top and added visual emphasis. What's next?"
+
+**User:** "Looks good"
+
+**Rowboat:** "Great! The document is updated."
+
+## Related Features
+
+- [Meeting Prep](/use-cases/meeting-prep) - Use your knowledge base for meeting briefs
+- [Email Drafting](/use-cases/email-drafting) - Draft emails referencing document content
+- [Voice Notes](/use-cases/voice-notes) - Capture ideas to add to documents

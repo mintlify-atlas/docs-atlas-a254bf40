@@ -1,0 +1,264 @@
+---
+title: 'Knowledge Graph'
+description: 'How Rowboat builds and maintains your personal knowledge graph'
+icon: 'diagram-project'
+---
+
+Rowboat automatically builds an Obsidian-style knowledge graph from your emails, meetings, and voice memos. This living knowledge base tracks people, organizations, projects, and topics you interact with.
+
+## How It Works
+
+The knowledge graph system continuously monitors your data sources and extracts meaningful entities to create interconnected notes.
+
+### Processing Flow
+
+<Steps>
+  <Step title="Sync runs">
+    Data sources (Gmail, Fireflies, Granola) fetch new or updated content and save as markdown files in `~/.rowboat/`
+  </Step>
+  <Step title="Change detection">
+    The system uses a hybrid mtime + hash approach to identify which files need processing:
+    - **Quick check**: Compare file modification time (mtime)
+    - **Verification**: If mtime changed, compute content hash to confirm actual content changes
+  </Step>
+  <Step title="Batch processing">
+    New or changed files are processed in batches of 10 by the `note_creation` agent
+  </Step>
+  <Step title="Entity extraction">
+    The agent extracts entities and creates/updates notes in `~/.rowboat/knowledge/`
+  </Step>
+  <Step title="State tracking">
+    Progress is saved incrementally after each successful batch to `~/.rowboat/knowledge_graph_state.json`
+  </Step>
+</Steps>
+
+### Knowledge Structure
+
+Rowboat organizes your knowledge into four primary entity types:
+
+<CardGroup cols={2}>
+  <Card title="People" icon="user">
+    Contacts you interact with via email or meetings
+    
+    **Fields tracked:**
+    - Name and email
+    - Organization and role  
+    - Aliases for name variations
+    - Communication history
+  </Card>
+  
+  <Card title="Organizations" icon="building">
+    Companies and institutions mentioned in your communications
+    
+    **Fields tracked:**
+    - Organization name
+    - Domain (e.g., example.com)
+    - Aliases (e.g., "ACME" vs "ACME Corp")
+    - Related people and projects
+  </Card>
+  
+  <Card title="Projects" icon="folder-open">
+    Initiatives, deals, or ongoing work mentioned across conversations
+    
+    **Fields tracked:**
+    - Project name
+    - Status (active, completed, etc.)
+    - Aliases
+    - Related people and organizations
+  </Card>
+  
+  <Card title="Topics" icon="tags">
+    Concepts and subject matter that appear in your work
+    
+    **Fields tracked:**
+    - Topic name
+    - Keywords for matching
+    - Aliases
+    - Related entities
+  </Card>
+</CardGroup>
+
+## Note Creation from Sources
+
+### From Emails
+
+When processing email threads, Rowboat:
+
+1. Converts the thread to markdown format
+2. Extracts sender information, subject, and body content
+3. Identifies people, organizations, and topics mentioned
+4. Creates or updates corresponding notes with context
+
+<Info>
+Email processing behavior is controlled by **strictness levels** - see the section below for details.
+</Info>
+
+### From Meetings
+
+Meeting transcripts (from Fireflies or Granola) are processed similarly:
+
+1. Transcript is converted to structured markdown
+2. Participants are extracted and linked to People notes
+3. Topics discussed are identified and tracked
+4. Action items and decisions are preserved
+
+<Note>
+Meetings **always** create notes at all strictness levels, as they represent significant interactions.
+</Note>
+
+### From Voice Memos
+
+Voice memos recorded in Rowboat:
+
+1. Are transcribed and saved to `~/.rowboat/knowledge/Voice Memos/`
+2. Undergo entity extraction like other sources
+3. Can reference existing people, projects, or topics
+4. Are organized by date for easy retrieval
+
+## Strictness Levels
+
+Rowboat supports three strictness levels that control how aggressively notes are created from emails. This prevents your knowledge base from getting overwhelmed with noise.
+
+<Tabs>
+  <Tab title="High Strictness">
+    **Philosophy:** "Meetings create notes. Emails enrich them."
+    
+    - Emails **never create** new notes (only meetings do)
+    - Emails can only **update existing** notes for people you've already met
+    - Exception: Warm intros from known contacts can create notes
+    - **Best for:** Users who get lots of emails and want minimal noise
+    
+    **What gets filtered:**
+    - Mass newsletters ✓
+    - Automated/system emails ✓
+    - Consumer services (Amazon, Netflix) ✓
+    - Generic cold sales ✓
+    - Recruiters ✓
+    - Support reps ✓
+    - Personalized business emails ✓
+    
+    **What creates notes:**
+    - Meetings ✓
+    - Warm intros from existing contacts ✓
+  </Tab>
+  
+  <Tab title="Medium Strictness">
+    **Philosophy:** "Both create notes, but emails require personalized content."
+    
+    - Emails **can create** notes if personalized and business-relevant
+    - Filters out consumer services, mass mail, generic pitches
+    - Warm intros from anyone (not just existing contacts) create notes
+    - **Best for:** Balanced capture of relevant business contacts
+    
+    **What gets filtered:**
+    - Mass newsletters ✓
+    - Automated/system emails ✓
+    - Consumer services ✓
+    - Generic cold sales ✓
+    - Recruiters ✓
+    - Support reps ✓
+    
+    **What creates notes:**
+    - Meetings ✓
+    - Personalized business emails ✓
+    - Warm intros ✓
+  </Tab>
+  
+  <Tab title="Low Strictness">
+    **Philosophy:** "Capture broadly. Never miss a potentially important contact."
+    
+    - Creates notes for **any identifiable human sender**
+    - Only skips obvious automated emails and newsletters
+    - **Best for:** Users with low email volume who want comprehensive capture
+    
+    **What gets filtered:**
+    - Mass newsletters ✓
+    - Automated/system emails ✓
+    
+    **What creates notes:**
+    - Meetings ✓
+    - Personalized business emails ✓
+    - Warm intros ✓
+    - Consumer services ✓
+    - Cold sales emails ✓
+    - Recruiters ✓
+    - Support reps ✓
+  </Tab>
+</Tabs>
+
+### Auto-Configuration
+
+On first run, Rowboat analyzes your emails and recommends a strictness level:
+
+- **More than 100 human senders** → Recommends High (avoid overload)
+- **50-100 senders** → Recommends Medium (balanced)
+- **More than 50% consumer services** → Recommends Medium (filter noise)  
+- **Less than 30 senders** → Recommends Low (comprehensive capture is manageable)
+
+Strictness is configured in `~/.rowboat/config/note_creation.json` and can be changed at any time.
+
+## Knowledge Index
+
+Rowboat maintains a fast in-memory index of all your notes to help the AI quickly resolve entities without searching.
+
+<Accordion title="Index Structure">
+```json
+{
+  "people": [
+    {
+      "file": "People/John Doe.md",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "organization": "Acme Corp",
+      "role": "Engineering Manager",
+      "aliases": ["John", "JD"]
+    }
+  ],
+  "organizations": [
+    {
+      "file": "Organizations/Acme Corp.md",
+      "name": "Acme Corp",
+      "domain": "acme.com",
+      "aliases": ["ACME", "Acme"]
+    }
+  ],
+  "projects": [...],
+  "topics": [...],
+  "buildTime": "2026-02-28T10:30:00.000Z"
+}
+```
+</Accordion>
+
+The index is rebuilt before each processing batch to include notes from previous batches, ensuring entities are properly merged.
+
+## State Management
+
+The knowledge graph maintains state in `~/.rowboat/knowledge_graph_state.json`:
+
+```json
+{
+  "processedFiles": {
+    "/path/to/file.md": {
+      "mtime": "2026-01-07T10:30:00.000Z",
+      "hash": "a3f5e9d2c8b1...",
+      "lastProcessed": "2026-01-07T10:35:00.000Z"
+    }
+  },
+  "lastBuildTime": "2026-01-07T10:35:00.000Z"
+}
+```
+
+This ensures:
+- Only new or changed files are processed
+- Progress is preserved even if processing is interrupted
+- You can force reprocessing by deleting the state file
+
+## Source Code Reference
+
+Key implementation files:
+
+- `apps/x/packages/core/src/knowledge/build_graph.ts` - Main orchestrator
+- `apps/x/packages/core/src/knowledge/graph_state.ts` - State management
+- `apps/x/packages/core/src/knowledge/knowledge_index.ts` - Index builder
+- `apps/x/packages/core/src/knowledge/sync_gmail.ts` - Gmail integration
+- `apps/x/packages/core/src/knowledge/sync_fireflies.ts` - Meeting transcripts

@@ -1,0 +1,488 @@
+---
+title: Knowledge System Architecture
+description: How Rowboat processes, indexes, and manages your knowledge graph
+---
+
+Rowboat's knowledge system transforms raw content (emails, meetings, notes) into a **structured knowledge graph** using AI-powered entity extraction and note creation.
+
+## System Overview
+
+```
+Content Sources → Graph Builder → Knowledge Index → Entity Notes
+     ↓                 ↓                ↓               ↓
+  Gmail            Batch              Index          Obsidian
+  Calendar        Processing          Search          Notes
+  Fireflies      AI Agents          Metadata        [[Links]]
+  Voice Memos    Extraction         Aliases         Relations
+```
+
+## Architecture Components
+
+### 1. Content Source Syncing
+
+Background services continuously fetch content from external sources:
+
+<Accordion title="Gmail Sync (sync_gmail.ts)">
+
+**Purpose:** Fetch and index emails from Gmail API
+
+**Process:**
+1. OAuth 2.0 authentication with Google
+2. Incremental sync using history API
+3. Store raw emails as markdown in `~/.rowboat/gmail_sync/`
+4. Track sync state to avoid reprocessing
+
+**File Format:**
+```markdown
+# Email: Subject Line
+
+**From:** sender@example.com
+**To:** recipient@example.com
+**Date:** 2026-02-28
+
+Email body content...
+```
+
+**Location:** `core/src/knowledge/sync_gmail.ts`
+
+</Accordion>
+
+<Accordion title="Calendar Sync (sync_calendar.ts)">
+
+**Purpose:** Fetch calendar events from Google Calendar API
+
+**Process:**
+1. OAuth 2.0 authentication with Google
+2. Fetch events from primary calendar
+3. Store as markdown in `~/.rowboat/calendar_sync/`
+4. Track processed events by ID
+
+**File Format:**
+```markdown
+# Meeting Title
+
+**Date:** 2026-02-28
+**Attendees:** person1@example.com, person2@example.com
+
+Meeting description...
+```
+
+**Location:** `core/src/knowledge/sync_calendar.ts`
+
+</Accordion>
+
+<Accordion title="Fireflies Sync (sync_fireflies.ts)">
+
+**Purpose:** Fetch meeting transcripts from Fireflies.ai
+
+**Process:**
+1. OAuth 2.0 authentication with Fireflies
+2. GraphQL API to fetch transcripts
+3. Store as markdown in `~/.rowboat/fireflies_transcripts/`
+4. Include speaker labels and timestamps
+
+**File Format:**
+```markdown
+# Meeting: Title
+
+**Date:** 2026-02-28
+**Duration:** 45 minutes
+
+## Transcript
+
+**Speaker 1:** [00:00] Opening remarks...
+**Speaker 2:** [01:30] Response...
+```
+
+**Location:** `core/src/knowledge/sync_fireflies.ts`
+
+</Accordion>
+
+<Accordion title="Voice Memos">
+
+**Purpose:** User-created voice notes transcribed with Whisper
+
+**Process:**
+1. User records audio in UI
+2. Audio transcribed locally using Whisper
+3. Stored directly in `~/.rowboat/knowledge/Voice Memos/<date>/`
+4. Ready for entity extraction
+
+**File Format:**
+```markdown
+# Voice Memo - Feb 28, 2026
+
+**Recorded:** 2026-02-28 14:30:00
+
+Transcribed content...
+```
+
+**Location:** Created by UI, processed by graph builder
+
+</Accordion>
+
+### 2. Graph Builder - Entity Extraction Pipeline
+
+The **Graph Builder** (`build_graph.ts`) is the core processing engine:
+
+<Info>
+The graph builder runs every 30 seconds, checking all source folders for new/changed content. It uses **mtime + content hash** to detect changes efficiently.
+</Info>
+
+#### Processing Pipeline
+
+```typescript
+// Main processing loop
+while (true) {
+  await processAllSources();
+  await sleep(30_000); // Check every 30 seconds
+}
+```
+
+**Step-by-Step Flow:**
+
+1. **Change Detection**
+   - Scan source folders: `gmail_sync/`, `fireflies_transcripts/`, `granola_notes/`, `knowledge/Voice Memos/`
+   - Load state from `knowledge_graph_state.json`
+   - Check mtime + hash to identify changed files
+
+2. **Batch Processing**
+   - Group files into batches of 10
+   - Build knowledge index for each batch
+   - Create agent run for entity extraction
+
+3. **Agent Execution**
+   - Send batch + index to `note_creation` agent
+   - Agent extracts entities (people, orgs, projects, topics)
+   - Agent creates/updates notes in `~/.rowboat/knowledge/`
+
+4. **State Management**
+   - Mark processed files in state
+   - Commit changes to version history
+   - Save state after each batch
+
+#### State Tracking
+
+<Accordion title="graph_state.ts - Change Detection">
+
+**Purpose:** Track which files have been processed to avoid reprocessing
+
+**State Schema:**
+```typescript
+interface GraphState {
+  processedFiles: Record<string, FileState>;
+  lastBuildTime: string;
+}
+
+interface FileState {
+  mtime: string;        // File modification time
+  hash: string;         // SHA-256 content hash
+  lastProcessed: string; // When it was processed
+}
+```
+
+**Change Detection Logic:**
+```typescript
+function hasFileChanged(filePath: string, state: GraphState): boolean {
+  const fileState = state.processedFiles[filePath];
+  
+  // New file - never processed
+  if (!fileState) return true;
+  
+  // Quick check: mtime unchanged = no change
+  if (currentMtime === fileState.mtime) return false;
+  
+  // Mtime changed: verify with content hash
+  return currentHash !== fileState.hash;
+}
+```
+
+**Location:** `core/src/knowledge/graph_state.ts`
+
+</Accordion>
+
+#### Batch Processing Logic
+
+```typescript
+// build_graph.ts (simplified)
+async function buildGraphWithFiles(files: string[], state: GraphState) {
+  const BATCH_SIZE = 10;
+  const batches = chunk(files, BATCH_SIZE);
+  
+  for (const batch of batches) {
+    // Build fresh index for each batch
+    const index = buildKnowledgeIndex();
+    const indexForPrompt = formatIndexForPrompt(index);
+    
+    // Create agent run with batch + index
+    const result = await createNotesFromBatch(
+      batch, 
+      batchNumber, 
+      indexForPrompt
+    );
+    
+    // Mark files as processed
+    for (const file of batch) {
+      markFileAsProcessed(file.path, state);
+    }
+    
+    // Save state after each batch (partial progress)
+    saveState(state);
+  }
+}
+```
+
+### 3. Knowledge Index - Entity Resolution
+
+The **Knowledge Index** (`knowledge_index.ts`) provides entity resolution:
+
+<Warning>
+Agents must NOT use grep/search to find existing notes. The index is the source of truth for entity resolution.
+</Warning>
+
+#### Index Structure
+
+```typescript
+interface KnowledgeIndex {
+  people: PersonEntry[];          // Person notes
+  organizations: OrganizationEntry[]; // Company notes
+  projects: ProjectEntry[];       // Project notes
+  topics: TopicEntry[];           // Topic notes
+  other: OtherEntry[];            // Other folders
+  buildTime: string;
+}
+
+interface PersonEntry {
+  file: string;         // Relative path: "People/John Doe.md"
+  name: string;         // "John Doe"
+  email?: string;       // "john@example.com"
+  aliases: string[];    // ["JD", "John"]
+  organization?: string; // "Acme Corp"
+  role?: string;        // "CEO"
+}
+```
+
+#### Index Building
+
+**Process:**
+1. Recursively scan `~/.rowboat/knowledge/`
+2. Parse each markdown file
+3. Extract metadata based on folder:
+   - `People/` → Parse as person note
+   - `Organizations/` → Parse as org note
+   - `Projects/` → Parse as project note
+   - `Topics/` → Parse as topic note
+   - Other folders → Parse as generic note
+
+**Metadata Extraction:**
+```typescript
+function parsePersonNote(filePath: string, content: string): PersonEntry {
+  return {
+    file: relativePath(filePath),
+    name: extractTitle(content),      // First H1
+    email: extractField(content, 'Email'),
+    aliases: extractList(content, 'Aliases'),
+    organization: extractField(content, 'Organization'),
+    role: extractField(content, 'Role'),
+  };
+}
+```
+
+#### Index Formatting for Agents
+
+**Prompt Format:**
+```markdown
+# Existing Knowledge Base Index
+
+Built at: 2026-02-28T14:30:00Z
+
+## People
+
+| File | Name | Email | Organization | Aliases |
+|------|------|-------|--------------|--------|
+| People/John Doe.md | John Doe | john@example.com | Acme Corp | JD, John |
+| People/Jane Smith.md | Jane Smith | jane@smith.com | - | Jane |
+
+## Organizations
+
+| File | Name | Domain | Aliases |
+|------|------|--------|--------|
+| Organizations/Acme Corp.md | Acme Corp | acme.com | ACME |
+
+## Projects
+
+| File | Name | Status | Aliases |
+|------|------|--------|--------|
+| Projects/Rowboat.md | Rowboat | Active | RB |
+```
+
+**Usage in Agent Prompt:**
+```typescript
+const message = `
+Process the following source files and create/update notes.
+
+**Instructions:**
+- Use the KNOWLEDGE BASE INDEX below to resolve entities
+- DO NOT grep/search for existing notes
+- Extract entities from ALL files
+- Create or update notes in "knowledge" directory
+
+---
+
+${indexForPrompt}
+
+---
+
+# Source Files to Process
+
+## Source File 1: email-2026-02-28.md
+...
+`;
+```
+
+### 4. Note Creation - AI Agent Workflow
+
+The **note creation agent** receives batches of content and:
+
+1. **Entity Extraction**
+   - Identify people, organizations, projects, topics
+   - Resolve entities using the index
+   - Merge information if entity already exists
+
+2. **Note Creation/Updates**
+   - Use `workspace-writeFile` for new notes
+   - Use `workspace-edit` for existing notes
+   - Follow folder structure: `knowledge/People/`, `knowledge/Organizations/`, etc.
+
+3. **Note Templates**
+   - People: Name, Email, Organization, Role, Aliases
+   - Organizations: Name, Domain, Aliases
+   - Projects: Name, Status, Aliases
+   - Topics: Name, Keywords, Aliases
+
+**Example Person Note:**
+```markdown
+# John Doe
+
+**Email:** john@example.com
+**Organization:** [[Acme Corp]]
+**Role:** CEO
+**Aliases:** JD, John
+
+## Context
+
+Met with John on 2026-02-28 to discuss [[Rowboat]] project...
+
+## Related
+- [[Acme Corp]]
+- [[Rowboat]]
+```
+
+## Data Flow Diagram
+
+```
+┌─────────────┐
+│   Gmail     │───┐
+└─────────────┘   │
+                  │
+┌─────────────┐   │     ┌──────────────┐
+│  Calendar   │───┼────→│ Graph Builder│
+└─────────────┘   │     └──────┬───────┘
+                  │            │
+┌─────────────┐   │            │ Batch Processing
+│ Fireflies   │───┤            │ + AI Extraction
+└─────────────┘   │            ↓
+                  │     ┌──────────────┐
+┌─────────────┐   │     │   Knowledge  │
+│Voice Memos  │───┘     │     Index    │
+└─────────────┘         └──────┬───────┘
+                               │
+                               │ Entity Resolution
+                               ↓
+                        ┌──────────────┐
+                        │   Notes      │
+                        │  People/     │
+                        │  Orgs/       │
+                        │  Projects/   │
+                        └──────────────┘
+```
+
+## File System Layout
+
+```
+~/.rowboat/
+├── gmail_sync/              # Raw Gmail content
+│   ├── 2026-02-28-email1.md
+│   └── 2026-02-28-email2.md
+├── calendar_sync/           # Calendar events
+│   └── 2026-02-28-meeting.md
+├── fireflies_transcripts/   # Meeting transcripts
+│   └── 2026-02-28-standup.md
+├── knowledge/               # Structured notes (OUTPUT)
+│   ├── People/
+│   │   ├── John Doe.md
+│   │   └── Jane Smith.md
+│   ├── Organizations/
+│   │   └── Acme Corp.md
+│   ├── Projects/
+│   │   └── Rowboat.md
+│   ├── Topics/
+│   │   └── Product Strategy.md
+│   └── Voice Memos/
+│       └── 2026-02-28/
+│           └── voice-memo-143000.md
+├── knowledge_graph_state.json  # Processing state
+└── config/
+    └── models.json          # LLM configuration
+```
+
+## Performance Optimizations
+
+<Accordion title="Incremental Processing">
+
+- **State tracking:** Only process new/changed files
+- **Hash-based detection:** mtime + SHA-256 hash avoids false positives
+- **Batch processing:** Process 10 files per agent run (faster than 25)
+- **Partial saves:** State saved after each batch (no full reprocessing on error)
+
+</Accordion>
+
+<Accordion title="Index Caching">
+
+- **Fresh index per batch:** Includes notes from previous batches
+- **Fast scanning:** Recursive directory traversal
+- **Metadata extraction:** Parse only frontmatter fields, not full content
+
+</Accordion>
+
+<Accordion title="Background Services">
+
+- **Async processing:** All services run independently
+- **30-second polling:** Balance between responsiveness and CPU usage
+- **Error recovery:** Failed batches don't block subsequent batches
+- **Service logging:** Structured logs for debugging
+
+</Accordion>
+
+## Key Design Decisions
+
+<Info>
+**Why batch processing?** Processing files in batches (10 at a time) allows the agent to see patterns across multiple sources and merge information about the same entity.
+</Info>
+
+<Info>
+**Why index-based resolution?** Providing a pre-built index prevents agents from making expensive grep/search calls and ensures consistent entity resolution.
+</Info>
+
+<Info>
+**Why mtime + hash?** Checking mtime first is fast (no file read). Hash verification only happens when mtime changes, catching false positives (e.g., touch commands).
+</Info>
+
+## Code References
+
+- Graph Builder: `core/src/knowledge/build_graph.ts`
+- Knowledge Index: `core/src/knowledge/knowledge_index.ts`
+- State Management: `core/src/knowledge/graph_state.ts`
+- Gmail Sync: `core/src/knowledge/sync_gmail.ts`
+- Calendar Sync: `core/src/knowledge/sync_calendar.ts`
+- Fireflies Sync: `core/src/knowledge/sync_fireflies.ts`

@@ -1,0 +1,470 @@
+---
+title: Testing Guide
+description: Testing strategies and best practices for Rowboat
+---
+
+This guide covers testing approaches for the Rowboat Electron application, including unit tests, integration tests, and manual testing workflows.
+
+## Testing Overview
+
+Rowboat's testing strategy focuses on:
+
+- **Type safety** - TypeScript catches many errors at compile time
+- **Linting** - ESLint enforces code quality standards
+- **Manual testing** - Development mode for rapid iteration
+- **Integration testing** - Testing the full Electron app
+
+## Type Checking
+
+TypeScript provides the first line of defense against bugs.
+
+### Running Type Checks
+
+<CodeGroup>
+```bash Full workspace
+cd apps/x
+npm run deps  # Compiles all packages, checking types
+```
+
+```bash Individual packages
+# Shared package
+cd apps/x/packages/shared
+npm run build  # Runs tsc
+
+# Core package
+cd apps/x/packages/core
+npm run build  # Runs tsc
+
+# Main process
+cd apps/x/apps/main
+npm run build  # Runs tsc then bundles
+```
+</CodeGroup>
+
+### TypeScript Configuration
+
+Each package has its own `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true
+  }
+}
+```
+
+<Note>
+  Type definitions are generated during build. If you see "Cannot find module" errors in your IDE, run `npm run deps` to rebuild type definitions.
+</Note>
+
+## Linting
+
+ESLint enforces code quality and catches common errors.
+
+### Running the Linter
+
+<CodeGroup>
+```bash Check
+cd apps/x
+npm run lint  # Check all files
+```
+
+```bash Fix
+cd apps/x
+npm run lint:fix  # Auto-fix issues
+```
+</CodeGroup>
+
+### ESLint Configuration
+
+The workspace uses ESLint 9 with flat config:
+
+```javascript
+// apps/x/eslint.config.js
+import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+
+export default [
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': 'warn'
+    }
+  }
+]
+```
+
+### Common Linting Issues
+
+#### Unused Variables
+
+```typescript
+// ❌ Error: 'foo' is defined but never used
+const foo = 'bar'
+
+// ✅ Fix: Use or remove
+const foo = 'bar'
+console.log(foo)
+```
+
+#### React Hooks Rules
+
+```typescript
+// ❌ Error: React Hook used conditionally
+if (condition) {
+  useEffect(() => {}, [])
+}
+
+// ✅ Fix: Always call hooks at top level
+useEffect(() => {
+  if (condition) {
+    // conditional logic inside
+  }
+}, [])
+```
+
+## Manual Testing
+
+Development mode enables rapid manual testing with hot reload.
+
+### Starting Development Mode
+
+<Steps>
+  <Step title="Build dependencies">
+    ```bash
+    cd apps/x
+    npm run deps
+    ```
+  </Step>
+
+  <Step title="Start the app">
+    ```bash
+    npm run dev
+    ```
+    This starts both the Vite dev server and Electron.
+  </Step>
+
+  <Step title="Test changes">
+    - Edit renderer code → hot reload (instant)
+    - Edit main/preload → restart dev server (Ctrl+C, then `npm run dev`)
+  </Step>
+</Steps>
+
+### Testing Workflows
+
+#### UI Changes (Renderer)
+
+1. Edit files in `apps/renderer/src/`
+2. Save - changes appear instantly via HMR
+3. Test in the Electron window
+4. Use React DevTools for debugging
+
+#### Main Process Changes
+
+1. Edit files in `apps/main/src/`
+2. Stop dev server (Ctrl+C)
+3. Restart: `npm run dev`
+4. Test the changes
+5. Check Electron console for logs
+
+<Warning>
+  Main process changes don't hot-reload. Always restart the dev server after editing main process code.
+</Warning>
+
+#### Workspace Package Changes
+
+1. Edit files in `packages/shared/src/` or `packages/core/src/`
+2. Rebuild dependencies: `npm run deps`
+3. Restart dev server: `npm run dev`
+4. Test the changes
+
+### Developer Tools
+
+#### Chrome DevTools (Renderer)
+
+Open DevTools in the Electron window:
+
+- **macOS**: Cmd + Option + I
+- **Windows/Linux**: Ctrl + Shift + I
+
+Or programmatically:
+
+```typescript
+// apps/main/src/main.ts
+mainWindow.webContents.openDevTools()
+```
+
+#### Main Process Debugging
+
+Log to the terminal:
+
+```typescript
+// apps/main/src/main.ts
+console.log('Main process log')
+console.error('Error:', error)
+```
+
+Logs appear in the terminal where you ran `npm run dev`.
+
+#### VS Code Debugging
+
+Create `.vscode/launch.json`:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Main Process",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/x",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "outputCapture": "std"
+    }
+  ]
+}
+```
+
+## Integration Testing
+
+Test the full application flow from main process to renderer.
+
+### IPC Communication Testing
+
+Test the bridge between main and renderer:
+
+```typescript
+// apps/preload/src/preload.ts
+contextBridge.exposeInMainWorld('api', {
+  testFunction: () => {
+    console.log('Preload test function called')
+    return 'success'
+  }
+})
+
+// apps/renderer/src/test.tsx
+function TestComponent() {
+  const handleTest = () => {
+    const result = window.api.testFunction()
+    console.log('Result:', result)  // Should log 'success'
+  }
+  
+  return <button onClick={handleTest}>Test IPC</button>
+}
+```
+
+### Testing AI Providers
+
+Test AI integrations with different providers:
+
+<Steps>
+  <Step title="Configure provider">
+    Edit `~/.rowboat/config/models.json`:
+    ```json
+    {
+      "provider": {
+        "flavor": "openai",
+        "apiKey": "sk-..."
+      },
+      "model": "gpt-4"
+    }
+    ```
+  </Step>
+
+  <Step title="Start the app">
+    ```bash
+    cd apps/x
+    npm run dev
+    ```
+  </Step>
+
+  <Step title="Test interactions">
+    - Send a message
+    - Verify response
+    - Check terminal logs for API calls
+  </Step>
+
+  <Step title="Test other providers">
+    Update config for Anthropic, Google, etc. and repeat
+  </Step>
+</Steps>
+
+### Testing File Operations
+
+Test document parsing and file handling:
+
+```typescript
+// Test with sample files
+const testFiles = [
+  'sample.pdf',
+  'sample.docx',
+  'sample.csv',
+  'sample.xlsx'
+]
+
+// Drag and drop into the app
+// Verify parsing and display
+```
+
+## Production Testing
+
+Test the packaged application before distribution.
+
+### Building for Testing
+
+<Steps>
+  <Step title="Create package">
+    ```bash
+    cd apps/x/apps/main
+    npm run package
+    ```
+  </Step>
+
+  <Step title="Locate the app">
+    - **macOS**: `out/rowboat-darwin-arm64/Rowboat.app`
+    - **Windows**: `out/rowboat-win32-x64/Rowboat.exe`
+    - **Linux**: `out/rowboat-linux-x64/rowboat`
+  </Step>
+
+  <Step title="Test the packaged app">
+    Run the app and verify:
+    - Application launches
+    - UI loads correctly
+    - Features work as expected
+    - No console errors
+  </Step>
+</Steps>
+
+### Testing Installers
+
+<Steps>
+  <Step title="Create installer">
+    ```bash
+    cd apps/x/apps/main
+    npm run make
+    ```
+  </Step>
+
+  <Step title="Install on clean system">
+    Test the installer on a machine without development dependencies:
+    - Fresh VM or test machine
+    - No Node.js or development tools
+    - Standard user (not admin)
+  </Step>
+
+  <Step title="Verify installation">
+    - Installer completes successfully
+    - App appears in Applications
+    - App launches and works
+    - Uninstaller works (if applicable)
+  </Step>
+</Steps>
+
+## Continuous Verification
+
+Run these checks before committing:
+
+```bash
+cd apps/x
+
+# 1. Build all packages
+npm run deps
+
+# 2. Run linter
+npm run lint
+
+# 3. Test the app
+npm run dev
+# Manual testing...
+
+# 4. Verify production build
+cd apps/main
+npm run package
+# Test the packaged app
+```
+
+<Note>
+  Consider creating a shell script to automate these checks:
+  
+  ```bash
+  #!/bin/bash
+  set -e
+  cd apps/x
+  npm run deps
+  npm run lint
+  echo "✓ All checks passed"
+  ```
+</Note>
+
+## Debugging Common Issues
+
+### App Won't Start
+
+<Steps>
+  <Step title="Check dependencies">
+    ```bash
+    cd apps/x
+    npm run deps
+    ```
+  </Step>
+
+  <Step title="Check for errors">
+    Look for errors in the terminal output
+  </Step>
+
+  <Step title="Clear cache">
+    ```bash
+    rm -rf node_modules
+    rm -rf apps/*/dist
+    rm -rf packages/*/dist
+    pnpm install
+    npm run deps
+    ```
+  </Step>
+</Steps>
+
+### Renderer Not Loading
+
+1. Check Vite dev server is running: http://localhost:5173
+2. Check for errors in Electron DevTools console
+3. Verify preload script is built: `apps/preload/dist/preload.js` exists
+
+### IPC Not Working
+
+1. Rebuild preload scripts: `npm run preload`
+2. Check contextBridge exposes the APIs correctly
+3. Verify renderer is calling the correct API methods
+4. Check main process is handling IPC events
+
+### Type Errors in IDE
+
+1. Rebuild packages: `npm run deps`
+2. Restart TypeScript server in IDE
+3. Check `tsconfig.json` includes correct paths
+
+## Best Practices
+
+- **Type everything** - Leverage TypeScript's type system
+- **Lint frequently** - Run `npm run lint` before committing
+- **Test across platforms** - macOS, Windows, Linux behaviors differ
+- **Test production builds** - Don't rely solely on dev mode
+- **Use React DevTools** - Profile performance and debug state
+- **Check console logs** - Both main process and renderer
+- **Clean builds** - When in doubt, clean and rebuild

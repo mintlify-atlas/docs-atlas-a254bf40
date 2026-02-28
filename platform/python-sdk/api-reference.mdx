@@ -1,0 +1,499 @@
+---
+title: 'API Reference'
+description: 'Complete Python SDK API documentation'
+---
+
+## Client
+
+The main interface for interacting with the Rowboat API.
+
+### Constructor
+
+Create a new client instance:
+
+```python
+from rowboat.client import Client
+
+client = Client(
+    host="https://api.rowboat.dev",
+    projectId="your-project-id",
+    apiKey="your-api-key"
+)
+```
+
+#### Parameters
+
+<ParamField path="host" type="string" required>
+  The Rowboat API host URL (e.g., `https://api.rowboat.dev`)
+</ParamField>
+
+<ParamField path="projectId" type="string" required>
+  Your Rowboat project ID from the dashboard
+</ParamField>
+
+<ParamField path="apiKey" type="string" required>
+  Your Rowboat API key for authentication
+</ParamField>
+
+### Methods
+
+#### run_turn()
+
+Execute a single conversation turn with the agent.
+
+```python
+result = client.run_turn(
+    messages=[UserMessage(role='user', content="Hello!")],
+    conversationId="conv_123",
+    mockTools={"tool_name": "mock response"}
+)
+```
+
+##### Parameters
+
+<ParamField path="messages" type="List[ApiMessage]" required>
+  List of messages to send to the agent. Must include at least one message.
+  
+  Supported message types:
+  - `UserMessage`
+  - `SystemMessage`
+  - `AssistantMessage`
+  - `AssistantMessageWithToolCalls`
+  - `ToolMessage`
+</ParamField>
+
+<ParamField path="conversationId" type="string" optional>
+  The conversation ID from a previous turn. Omit to start a new conversation.
+  
+  Used to maintain context across multiple turns in a conversation.
+</ParamField>
+
+<ParamField path="mockTools" type="Dict[str, str]" optional>
+  Dictionary mapping tool names to mock responses.
+  
+  Use this to test agent behavior without executing real tools:
+  
+  ```python
+  mockTools={
+      "weather_lookup": "Sunny and 72°F",
+      "calculator": "42"
+  }
+  ```
+</ParamField>
+
+##### Returns
+
+<ResponseField name="ApiResponse" type="object">
+  The API response containing the conversation ID and turn output.
+  
+  <ResponseField name="conversationId" type="string">
+    The conversation ID. Use this for subsequent turns to maintain context.
+  </ResponseField>
+  
+  <ResponseField name="turn" type="Turn">
+    The turn object containing the agent's response.
+    
+    <ResponseField name="id" type="string">
+      Unique identifier for this turn.
+    </ResponseField>
+    
+    <ResponseField name="output" type="List[ApiMessage]">
+      List of output messages from the agent. The last message typically contains the agent's response.
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+##### Raises
+
+- `ValueError`: Raised when the API returns a non-200 status code
+
+##### Example
+
+```python
+try:
+    result = client.run_turn(
+        messages=[UserMessage(role='user', content="Hello")]
+    )
+    print(result.turn.output[-1].content)
+    print("Conversation ID:", result.conversationId)
+except ValueError as e:
+    print(f"API Error: {e}")
+```
+
+## Message Types
+
+All message types are imported from `rowboat.schema`.
+
+### UserMessage
+
+Represents a message from the end user.
+
+```python
+from rowboat.schema import UserMessage
+
+message = UserMessage(
+    role='user',
+    content="What's the weather today?"
+)
+```
+
+#### Fields
+
+<ParamField path="role" type="Literal['user']" required>
+  Must be `'user'`
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The message content from the user
+</ParamField>
+
+### SystemMessage
+
+Provides system instructions or context to the agent.
+
+```python
+from rowboat.schema import SystemMessage
+
+message = SystemMessage(
+    role='system',
+    content="You are a helpful weather assistant."
+)
+```
+
+#### Fields
+
+<ParamField path="role" type="Literal['system']" required>
+  Must be `'system'`
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The system instruction or context
+</ParamField>
+
+### AssistantMessage
+
+Represents a response from the agent.
+
+```python
+from rowboat.schema import AssistantMessage
+
+message = AssistantMessage(
+    role='assistant',
+    content="The weather is sunny and 72°F.",
+    responseType='external',
+    agenticName='weather-bot'
+)
+```
+
+#### Fields
+
+<ParamField path="role" type="Literal['assistant']" required>
+  Must be `'assistant'`
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The assistant's response message
+</ParamField>
+
+<ParamField path="responseType" type="Literal['internal', 'external']" required>
+  The type of response:
+  - `'internal'`: Internal agent reasoning (not shown to user)
+  - `'external'`: User-facing response
+</ParamField>
+
+<ParamField path="agenticName" type="string" optional>
+  Optional name identifier for the agent
+</ParamField>
+
+### AssistantMessageWithToolCalls
+
+Represents an assistant message that includes tool calls.
+
+```python
+from rowboat.schema import AssistantMessageWithToolCalls, ToolCall, FunctionCall
+
+message = AssistantMessageWithToolCalls(
+    role='assistant',
+    content="Let me check the weather for you.",
+    toolCalls=[
+        ToolCall(
+            id='call_123',
+            type='function',
+            function=FunctionCall(
+                name='weather_lookup',
+                arguments='{"city": "San Francisco"}'
+            )
+        )
+    ],
+    agenticName='weather-bot'
+)
+```
+
+#### Fields
+
+<ParamField path="role" type="Literal['assistant']" required>
+  Must be `'assistant'`
+</ParamField>
+
+<ParamField path="content" type="string" optional>
+  Optional message content
+</ParamField>
+
+<ParamField path="toolCalls" type="List[ToolCall]" required>
+  List of tool calls made by the assistant
+</ParamField>
+
+<ParamField path="agenticName" type="string" optional>
+  Optional name identifier for the agent
+</ParamField>
+
+### ToolMessage
+
+Represents the result of a tool execution.
+
+```python
+from rowboat.schema import ToolMessage
+
+message = ToolMessage(
+    role='tool',
+    content='{"temperature": 72, "condition": "sunny"}',
+    toolCallId='call_123',
+    toolName='weather_lookup'
+)
+```
+
+#### Fields
+
+<ParamField path="role" type="Literal['tool']" required>
+  Must be `'tool'`
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The tool execution result (typically JSON string)
+</ParamField>
+
+<ParamField path="toolCallId" type="string" required>
+  The ID of the tool call this message responds to
+</ParamField>
+
+<ParamField path="toolName" type="string" required>
+  The name of the tool that was executed
+</ParamField>
+
+## Type Definitions
+
+### ToolCall
+
+Represents a request to execute a tool.
+
+```python
+from rowboat.schema import ToolCall, FunctionCall
+
+tool_call = ToolCall(
+    id='call_123',
+    type='function',
+    function=FunctionCall(
+        name='weather_lookup',
+        arguments='{"city": "San Francisco"}'
+    )
+)
+```
+
+#### Fields
+
+<ParamField path="id" type="string" required>
+  Unique identifier for this tool call
+</ParamField>
+
+<ParamField path="type" type="Literal['function']" required>
+  Must be `'function'`
+</ParamField>
+
+<ParamField path="function" type="FunctionCall" required>
+  The function call details
+</ParamField>
+
+### FunctionCall
+
+Contains details about a function to be called.
+
+```python
+from rowboat.schema import FunctionCall
+
+function_call = FunctionCall(
+    name='weather_lookup',
+    arguments='{"city": "San Francisco"}'
+)
+```
+
+#### Fields
+
+<ParamField path="name" type="string" required>
+  The name of the function to call
+</ParamField>
+
+<ParamField path="arguments" type="string" required>
+  JSON string containing the function arguments
+</ParamField>
+
+### Turn
+
+Represents a single conversation turn.
+
+```python
+from rowboat.schema import Turn
+
+turn = Turn(
+    id='turn_123',
+    output=[AssistantMessage(...)]
+)
+```
+
+#### Fields
+
+<ParamField path="id" type="string" required>
+  Unique identifier for this turn
+</ParamField>
+
+<ParamField path="output" type="List[ApiMessage]" required>
+  List of messages generated during this turn
+</ParamField>
+
+### ApiRequest
+
+The request payload sent to the API.
+
+```python
+from rowboat.schema import ApiRequest
+
+request = ApiRequest(
+    conversationId='conv_123',
+    messages=[UserMessage(role='user', content='Hello')],
+    mockTools={'tool': 'response'}
+)
+```
+
+#### Fields
+
+<ParamField path="conversationId" type="string" optional>
+  Optional conversation ID to continue an existing conversation
+</ParamField>
+
+<ParamField path="messages" type="List[ApiMessage]" required>
+  List of messages to send
+</ParamField>
+
+<ParamField path="mockTools" type="Dict[str, str]" optional>
+  Optional mock tool responses for testing
+</ParamField>
+
+### ApiResponse
+
+The response received from the API.
+
+```python
+from rowboat.schema import ApiResponse
+
+response = ApiResponse(
+    conversationId='conv_123',
+    turn=Turn(...)
+)
+```
+
+#### Fields
+
+<ParamField path="conversationId" type="string" required>
+  The conversation ID (use for subsequent turns)
+</ParamField>
+
+<ParamField path="turn" type="Turn" required>
+  The turn data containing the agent's response
+</ParamField>
+
+## Complete Example
+
+Here's a comprehensive example using the full API:
+
+```python
+from rowboat.client import Client
+from rowboat.schema import (
+    UserMessage,
+    SystemMessage,
+    ApiResponse
+)
+import os
+
+# Initialize client
+client = Client(
+    host=os.getenv("ROWBOAT_HOST", "https://api.rowboat.dev"),
+    projectId=os.getenv("ROWBOAT_PROJECT_ID"),
+    apiKey=os.getenv("ROWBOAT_API_KEY")
+)
+
+def chat(user_message: str, conversation_id: str = None) -> ApiResponse:
+    """Send a message and return the response."""
+    try:
+        result = client.run_turn(
+            messages=[
+                SystemMessage(
+                    role='system',
+                    content='You are a helpful assistant.'
+                ),
+                UserMessage(
+                    role='user',
+                    content=user_message
+                )
+            ],
+            conversationId=conversation_id
+        )
+        return result
+    except ValueError as e:
+        print(f"API Error: {e}")
+        raise
+
+# Start conversation
+result = chat("What can you help me with?")
+print("Assistant:", result.turn.output[-1].content)
+conv_id = result.conversationId
+
+# Continue conversation
+result = chat("Tell me about your capabilities.", conv_id)
+print("Assistant:", result.turn.output[-1].content)
+```
+
+## Error Handling
+
+The SDK raises `ValueError` when the API returns an error:
+
+```python
+try:
+    result = client.run_turn(
+        messages=[UserMessage(role='user', content='Hello')]
+    )
+except ValueError as e:
+    # Handle API errors
+    print(f"Error: {e}")
+    # Error format: "Error: {status_code} - {response_text}"
+```
+
+Common error scenarios:
+
+- **401 Unauthorized**: Invalid API key
+- **404 Not Found**: Invalid project ID or endpoint
+- **429 Too Many Requests**: Rate limit exceeded
+- **500 Internal Server Error**: Server-side error
+
+## Type Safety
+
+All classes use Pydantic for runtime type validation:
+
+```python
+from pydantic import ValidationError
+from rowboat.schema import UserMessage
+
+try:
+    # This will raise a ValidationError
+    message = UserMessage(role='invalid', content='Hello')
+except ValidationError as e:
+    print(e)
+```

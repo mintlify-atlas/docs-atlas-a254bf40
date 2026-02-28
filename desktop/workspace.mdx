@@ -1,0 +1,574 @@
+---
+title: Workspace Structure
+description: Understanding the ~/.rowboat/ directory and its contents
+---
+
+Rowboat stores all data locally in the `~/.rowboat/` directory. Everything is plain text - Markdown, JSON, and git history. You can inspect, edit, back up, or delete any file at any time.
+
+## Directory Overview
+
+```
+~/.rowboat/
+├── knowledge/              # Your knowledge graph (Obsidian-compatible)
+│   ├── People/            # Notes about individuals
+│   ├── Organizations/     # Notes about companies and teams
+│   ├── Projects/          # Notes about initiatives and workstreams
+│   ├── Topics/            # Notes about recurring themes
+│   └── Welcome.md         # Introduction to your knowledge graph
+├── agents/                # Background agent state and outputs
+├── config/                # Configuration files
+│   ├── models.json        # AI model configuration
+│   ├── mcp.json           # MCP server configuration
+│   ├── security.json      # Allowed shell commands
+│   ├── note_creation.json # Knowledge graph strictness
+│   ├── agent_schedule.json # Background agent schedules
+│   ├── deepgram.json      # Voice transcription (optional)
+│   ├── brave-search.json  # Web search (optional)
+│   └── exa-search.json    # Research search (optional)
+├── sources/               # Raw email and meeting data
+│   ├── gmail/             # Gmail threads
+│   ├── fireflies/         # Fireflies transcripts
+│   └── granola/           # Granola meeting notes
+├── .git/                  # Version control for knowledge graph
+└── knowledge_graph_state.json  # Change tracking for graph builder
+```
+
+## Knowledge Graph
+
+The `knowledge/` directory is your work memory - an Obsidian-compatible vault with Markdown notes and backlinks.
+
+### People/
+
+Notes about individuals you work with.
+
+**Example: `knowledge/People/Sarah Chen.md`**
+
+```markdown
+# Sarah Chen
+
+## Role
+VP of Product at [[Acme Corp]]
+
+## Recent Interactions
+
+### 2026-01-15: Product roadmap discussion
+- Wants to prioritize mobile app for Q2
+- Concerned about API latency for international users
+- Committed to providing designs by end of January
+
+### 2025-12-10: Kickoff meeting
+- Introduced the new authentication requirements
+- Asked about our deployment timeline
+
+## Open Questions
+- What's the timeline for the API performance improvements?
+- Do we need additional resources for mobile?
+
+## Commitments
+
+**From Sarah:**
+- Design mockups by Jan 31
+- Finalize scope for Q2 sprint by Feb 5
+
+**From us:**
+- Provide API benchmark results
+- Share deployment schedule for mobile backend
+```
+
+<Note>
+Backlinks like `[[Acme Corp]]` connect notes together. Clicking a backlink in Obsidian (or Rowboat) navigates to that note.
+</Note>
+
+### Organizations/
+
+Notes about companies, teams, and groups.
+
+**Example: `knowledge/Organizations/Acme Corp.md`**
+
+```markdown
+# Acme Corp
+
+## Key Contacts
+- [[Sarah Chen]] - VP of Product
+- [[Michael Park]] - CTO
+- [[Lisa Wang]] - Engineering Manager
+
+## Active Projects
+- [[Mobile App Launch]] (Q2 2026)
+- [[API Performance Optimization]] (ongoing)
+
+## Relationship History
+- Customer since 2024-06
+- Contract renewal coming up in 2026-07
+- Currently on Enterprise plan
+
+## Recent Decisions
+- 2026-01-15: Agreed to prioritize mobile over desktop features
+- 2025-12-01: Extended contract through 2027
+```
+
+### Projects/
+
+Notes about ongoing initiatives, workstreams, and goals.
+
+**Example: `knowledge/Projects/Mobile App Launch.md`**
+
+```markdown
+# Mobile App Launch
+
+## Overview
+Launch native mobile apps (iOS and Android) for [[Acme Corp]] by Q2 2026.
+
+## Team
+- [[Sarah Chen]] (Product lead)
+- [[Alex Kim]] (iOS dev)
+- [[Jordan Lee]] (Android dev)
+
+## Milestones
+- [ ] Design finalized - Jan 31
+- [ ] API endpoints ready - Feb 15
+- [ ] Beta build - Mar 1
+- [ ] TestFlight/Play Console - Mar 15
+- [ ] Public launch - Apr 1
+
+## Decisions
+- 2026-01-15: Using React Native for both platforms
+- 2026-01-10: Authentication will use OAuth 2.0
+
+## Blockers
+- API latency for international users
+- Need design assets from [[Sarah Chen]]
+
+## Next Steps
+- Finalize authentication flow
+- Set up CI/CD pipeline for mobile builds
+```
+
+### Topics/
+
+Notes about recurring themes, concepts, and subject areas.
+
+**Example: `knowledge/Topics/API Architecture.md`**
+
+```markdown
+# API Architecture
+
+## Overview
+Our REST API design patterns and standards.
+
+## Related Projects
+- [[Mobile App Launch]]
+- [[API Performance Optimization]]
+
+## Key Principles
+- RESTful endpoints with versioning (v1, v2)
+- JSON for request/response bodies
+- OAuth 2.0 for authentication
+- Rate limiting: 1000 requests/hour
+
+## Recent Discussions
+- 2026-01-15: [[Sarah Chen]] raised concerns about latency
+- 2025-12-20: Decided to add caching layer for common queries
+
+## Resources
+- [API Documentation](https://docs.example.com/api)
+- OpenAPI spec: `/api/openapi.json`
+```
+
+### Welcome.md
+
+An introduction file created on first run:
+
+```markdown
+# Welcome to Rowboat
+
+This vault is your work memory.
+
+Rowboat extracts context from your emails and meetings and turns it
+into long-lived, editable Markdown notes...
+```
+
+## Configuration
+
+The `config/` directory contains all settings.
+
+### models.json
+
+**AI model configuration**
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-proj-..."
+  },
+  "model": "gpt-5.2",
+  "knowledgeGraphModel": "gpt-4.1"
+}
+```
+
+<Tabs>
+  <Tab title="Provider Flavors">
+    - `openai` - OpenAI GPT models
+    - `anthropic` - Anthropic Claude models
+    - `google` - Google Gemini models
+    - `ollama` - Local models via Ollama
+    - `openrouter` - OpenRouter (multiple models, one key)
+    - `aigateway` - Vercel AI Gateway
+    - `openai-compatible` - Any OpenAI-compatible API
+  </Tab>
+  
+  <Tab title="Fields">
+    - `flavor` - Provider type (required)
+    - `apiKey` - API key for cloud providers
+    - `baseURL` - Custom endpoint (optional for cloud, required for local)
+    - `headers` - Custom HTTP headers (optional)
+    - `model` - Main model for assistant
+    - `knowledgeGraphModel` - Separate model for graph operations (optional)
+  </Tab>
+</Tabs>
+
+### mcp.json
+
+**MCP server configuration**
+
+```json
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "BSA..."
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-...",
+        "SLACK_TEAM_ID": "T..."
+      }
+    }
+  }
+}
+```
+
+<Note>
+Always use the Settings dialog or `addMcpServer` builtin tool to modify this file. Manual edits may break validation.
+</Note>
+
+### security.json
+
+**Allowed shell commands**
+
+Commands on this list run immediately without user approval:
+
+```json
+{
+  "allowedCommands": [
+    "ls",
+    "cat",
+    "git status",
+    "git log",
+    "npm install",
+    "python --version"
+  ]
+}
+```
+
+Commands not on the list trigger a one-time approval prompt.
+
+### note_creation.json
+
+**Knowledge graph strictness**
+
+```json
+{
+  "strictness": "medium",
+  "configured": true
+}
+```
+
+<Tabs>
+  <Tab title="Strictness Levels">
+    - `high` - Meetings create notes. Emails only enrich existing notes.
+    - `medium` - Both create notes, but emails require personalized content.
+    - `low` - Capture broadly. Create notes for any identifiable human sender.
+  </Tab>
+  
+  <Tab title="Configuration">
+    - `strictness` - The level ("high", "medium", or "low")
+    - `configured` - Whether auto-analysis has run (set to `false` to re-analyze)
+  </Tab>
+</Tabs>
+
+### agent_schedule.json
+
+**Background agent schedules**
+
+```json
+{
+  "agents": [
+    {
+      "id": "daily-briefing",
+      "name": "Daily Briefing",
+      "enabled": true,
+      "schedule": "0 8 * * *",
+      "instructions": "Generate a voice note with today's agenda..."
+    }
+  ]
+}
+```
+
+Each agent has:
+- `id` - Unique identifier
+- `name` - Human-readable name
+- `enabled` - Whether the agent is active
+- `schedule` - Cron expression for when to run
+- `instructions` - What the agent should do
+
+### Optional Service Configs
+
+<CodeGroup>
+
+```json deepgram.json
+{
+  "apiKey": "your-deepgram-api-key"
+}
+```
+
+```json brave-search.json
+{
+  "apiKey": "BSA..."
+}
+```
+
+```json exa-search.json
+{
+  "apiKey": "your-exa-api-key"
+}
+```
+
+</CodeGroup>
+
+## Sources
+
+The `sources/` directory contains raw emails and meeting transcripts synced from external services.
+
+### gmail/
+
+Gmail threads saved as Markdown:
+
+```
+sources/gmail/
+├── thread_abc123.md
+├── thread_def456.md
+└── ...
+```
+
+Each file contains:
+- Thread subject
+- Participants
+- Message timestamps
+- Full message content
+
+### fireflies/
+
+Fireflies meeting transcripts:
+
+```
+sources/fireflies/
+├── meeting_2026-01-15.md
+├── meeting_2026-01-14.md
+└── ...
+```
+
+### granola/
+
+Granola meeting notes:
+
+```
+sources/granola/
+├── standup_2026-01-15.md
+├── planning_2026-01-14.md
+└── ...
+```
+
+<Note>
+Source files are **not meant for direct editing**. They're processed by the knowledge graph builder to create and update notes in `knowledge/`.
+</Note>
+
+## Agents
+
+The `agents/` directory contains state and outputs from background agents.
+
+```
+agents/
+├── daily-briefing/
+│   ├── state.json
+│   └── outputs/
+│       ├── 2026-01-15.md
+│       └── 2026-01-14.md
+└── email-drafter/
+    ├── state.json
+    └── drafts/
+        ├── reply_to_sarah.md
+        └── ...
+```
+
+Each agent gets its own subdirectory for:
+- **state.json** - Last run time, success/failure, etc.
+- **outputs/** - Generated content (notes, drafts, reports)
+
+## Version Control
+
+Rowboat automatically tracks changes to your knowledge graph using git.
+
+**Location:** `~/.rowboat/.git/`
+
+### What's Tracked
+
+- All notes in `knowledge/`
+- Automatic commits when notes are created or updated
+- Full git history for diffs and rollbacks
+
+### Using Git
+
+You can use standard git commands:
+
+```bash
+cd ~/.rowboat
+
+# View history
+git log --oneline
+
+# See what changed
+git diff HEAD~1 knowledge/People/Sarah\ Chen.md
+
+# Undo changes
+git checkout HEAD~1 -- knowledge/People/Sarah\ Chen.md
+
+# View all changes in the last day
+git log --since="1 day ago" --stat
+```
+
+<Note>
+Rowboat's version history is automatic - you don't need to commit manually. But you can use git for advanced operations if needed.
+</Note>
+
+## State Files
+
+### knowledge_graph_state.json
+
+**Change tracking for graph builder**
+
+```json
+{
+  "processedFiles": {
+    "/full/path/to/sources/gmail/thread_abc.md": {
+      "mtime": "2026-01-15T10:30:00.000Z",
+      "hash": "a3f5e9d2c8b1...",
+      "lastProcessed": "2026-01-15T10:35:00.000Z"
+    }
+  },
+  "lastBuildTime": "2026-01-15T10:35:00.000Z"
+}
+```
+
+This file tracks which source files have been processed to build the knowledge graph.
+
+**Fields:**
+- `mtime` - File modification time
+- `hash` - SHA-256 hash of file contents
+- `lastProcessed` - When the file was last processed
+- `lastBuildTime` - When the graph builder last ran
+
+<Note>
+Delete this file to force reprocessing of all sources (useful for testing new strictness levels).
+</Note>
+
+## Backup and Portability
+
+Since everything is plain text, you can:
+
+### Back Up
+
+```bash
+# Full backup
+tar -czf rowboat-backup.tar.gz ~/.rowboat/
+
+# Knowledge graph only
+tar -czf knowledge-backup.tar.gz ~/.rowboat/knowledge/
+
+# Use Time Machine, Backblaze, etc.
+# (they'll automatically include ~/.rowboat/)
+```
+
+### Restore
+
+```bash
+tar -xzf rowboat-backup.tar.gz -C ~/
+```
+
+### Sync Across Machines
+
+```bash
+# Machine 1
+cd ~/.rowboat/knowledge
+git remote add origin git@github.com:you/rowboat-knowledge.git
+git push -u origin main
+
+# Machine 2
+cd ~/.rowboat
+rm -rf knowledge
+git clone git@github.com:you/rowboat-knowledge.git knowledge
+```
+
+<Note>
+**Be careful with API keys!** If syncing `~/.rowboat/` to cloud storage, exclude `config/*.json` files containing sensitive credentials.
+</Note>
+
+### Open in Obsidian
+
+<Steps>
+  <Step title="Install Obsidian">
+    Download from [obsidian.md](https://obsidian.md)
+  </Step>
+  
+  <Step title="Open as vault">
+    File → Open vault → Open folder → Select `~/.rowboat/knowledge/`
+  </Step>
+  
+  <Step title="Browse and edit">
+    All your notes appear with working backlinks. Edits sync back to Rowboat automatically.
+  </Step>
+</Steps>
+
+## Disk Usage
+
+Typical disk usage:
+
+- **knowledge/** - 5-50 MB (depends on how many notes)
+- **sources/** - 50-500 MB (raw emails and transcripts)
+- **.git/** - 10-100 MB (version history)
+- **config/** - Less than 1 MB
+- **agents/** - 1-10 MB
+
+**Total:** Usually under 500 MB
+
+<Note>
+If disk usage grows too large, you can archive old sources or prune git history.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure AI Models" icon="sliders" href="/desktop/model-configuration">
+    Set up OpenAI, Anthropic, Google, Ollama, or local models
+  </Card>
+  
+  <Card title="Explore Features" icon="sparkles" href="/desktop/features">
+    Learn what you can do with Rowboat Desktop
+  </Card>
+</CardGroup>

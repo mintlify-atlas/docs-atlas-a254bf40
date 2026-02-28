@@ -14,20 +14,25 @@
 
 ## Terminology
 
-<!-- Add product-specific terms and preferred usage -->
-<!-- Example: Use "workspace" not "project", "member" not "user" -->
+- Knowledge graph - The markdown-based memory system
+- Workspace - The `~/.rowboat/` directory
+- Background agents - Automated workflows that run on schedule
+- Skills - Capabilities loaded by the AI agent (meeting prep, email drafting, etc.)
 
 ## Style preferences
-
-<!-- Add any project-specific style rules below -->
 
 - Use active voice and second person ("you")
 - Keep sentences concise — one idea per sentence
 - Use sentence case for headings
 - Bold for UI elements: Click **Settings**
 - Code formatting for file names, commands, paths, and code references
+- Use "knowledge graph" not "knowledge base"
+- Use "background agents" not "scheduled tasks"
 
 ## Content boundaries
 
-<!-- Define what should and shouldn't be documented -->
-<!-- Example: Don't document internal admin features -->
+- Focus on user-facing features and workflows
+- Document the desktop app, CLI, Python SDK, and web platform
+- Include configuration and setup guides
+- Cover integrations (Gmail, Calendar, Slack, MCP)
+- Don't document internal implementation details unless necessary for advanced users

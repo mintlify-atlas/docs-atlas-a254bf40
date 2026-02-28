@@ -1,0 +1,319 @@
+---
+title: 'LLM Configuration'
+description: 'Configure language models for Rowboat'
+icon: 'brain'
+---
+
+Rowboat supports multiple LLM providers and allows you to bring your own API keys. Configure your preferred model in `~/.rowboat/config/models.json`.
+
+## Configuration File
+
+The models configuration is stored in:
+
+```bash
+~/.rowboat/config/models.json
+```
+
+## Configuration Schema
+
+<CodeGroup>
+```json Single Provider
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-...",
+    "baseURL": "https://api.openai.com/v1",
+    "headers": {}
+  },
+  "model": "gpt-4o",
+  "knowledgeGraphModel": "gpt-4o-mini"
+}
+```
+
+```json Multiple Providers
+{
+  "providers": {
+    "openai-main": {
+      "flavor": "openai",
+      "apiKey": "sk-...",
+      "baseURL": "https://api.openai.com/v1"
+    },
+    "anthropic-main": {
+      "flavor": "anthropic",
+      "apiKey": "sk-ant-...",
+      "baseURL": "https://api.anthropic.com/v1"
+    },
+    "local-ollama": {
+      "flavor": "ollama",
+      "baseURL": "http://localhost:11434"
+    }
+  },
+  "defaults": {
+    "provider": "openai-main",
+    "model": "gpt-4o"
+  }
+}
+```
+</CodeGroup>
+
+### Schema Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `provider.flavor` | string | Yes | Provider type (see supported providers below) |
+| `provider.apiKey` | string | Conditional | API key (not required for Ollama) |
+| `provider.baseURL` | string | No | Custom API endpoint |
+| `provider.headers` | object | No | Additional HTTP headers |
+| `model` | string | Yes | Model identifier |
+| `knowledgeGraphModel` | string | No | Model for knowledge graph processing (defaults to main model) |
+
+## Supported Providers
+
+<Steps>
+  <Step title="OpenAI">
+    Use OpenAI's GPT models.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "openai",
+        "apiKey": "sk-..."
+      },
+      "model": "gpt-4o"
+    }
+    ```
+    
+    **Default baseURL:** `https://api.openai.com/v1`
+    
+    **Popular models:**
+    - `gpt-4o` - Latest GPT-4 optimized
+    - `gpt-4o-mini` - Faster, more affordable
+    - `gpt-4-turbo` - Previous generation
+    
+    Get your API key: [OpenAI Platform](https://platform.openai.com/api-keys)
+  </Step>
+
+  <Step title="Anthropic">
+    Use Claude models from Anthropic.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "anthropic",
+        "apiKey": "sk-ant-..."
+      },
+      "model": "claude-sonnet-4-5"
+    }
+    ```
+    
+    **Default baseURL:** `https://api.anthropic.com/v1`
+    
+    **Popular models:**
+    - `claude-sonnet-4-5` - Latest Sonnet
+    - `claude-opus-4` - Most capable
+    - `claude-haiku-4` - Fast and efficient
+    
+    Get your API key: [Anthropic Console](https://console.anthropic.com/)
+  </Step>
+
+  <Step title="Google">
+    Use Google's Gemini models.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "google",
+        "apiKey": "AIza..."
+      },
+      "model": "gemini-2.5-pro"
+    }
+    ```
+    
+    **Default baseURL:** `https://generativelanguage.googleapis.com/v1beta`
+    
+    **Popular models:**
+    - `gemini-2.5-pro` - Latest Pro model
+    - `gemini-2.5-flash` - Fast responses
+    - `gemini-pro-1.5` - Previous generation
+    
+    Get your API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
+  </Step>
+
+  <Step title="Ollama (Local)">
+    Run models locally with Ollama.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "ollama",
+        "baseURL": "http://localhost:11434"
+      },
+      "model": "llama3.1"
+    }
+    ```
+    
+    <Info>
+    No API key required for Ollama. Make sure Ollama is running locally.
+    </Info>
+    
+    **Default baseURL:** `http://localhost:11434`
+    
+    **Popular models:**
+    - `llama3.1` - Meta's Llama 3.1
+    - `mistral` - Mistral 7B
+    - `mixtral` - Mixtral 8x7B
+    
+    Install Ollama: [ollama.com](https://ollama.com/)
+  </Step>
+
+  <Step title="OpenRouter">
+    Access multiple models through OpenRouter.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "openrouter",
+        "apiKey": "sk-or-..."
+      },
+      "model": "openrouter/auto"
+    }
+    ```
+    
+    **Default baseURL:** `https://openrouter.ai/api/v1`
+    
+    **Special models:**
+    - `openrouter/auto` - Automatically selects best model
+    - Or use any model from their catalog
+    
+    Get your API key: [OpenRouter](https://openrouter.ai/keys)
+  </Step>
+
+  <Step title="OpenAI-Compatible">
+    Use any OpenAI-compatible API (LM Studio, vLLM, etc.).
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "openai-compatible",
+        "apiKey": "optional",
+        "baseURL": "http://localhost:1234/v1"
+      },
+      "model": "local-model"
+    }
+    ```
+    
+    <Info>
+    Perfect for self-hosted solutions like LM Studio, vLLM, or text-generation-webui.
+    </Info>
+  </Step>
+
+  <Step title="AI Gateway (Vercel)">
+    Use Vercel AI Gateway for unified access.
+    
+    ```json
+    {
+      "provider": {
+        "flavor": "aigateway",
+        "apiKey": "your-gateway-key"
+      },
+      "model": "gpt-4o"
+    }
+    ```
+    
+    **Default baseURL:** `https://ai-gateway.vercel.sh/v1/ai`
+  </Step>
+</Steps>
+
+## Environment Variables
+
+You can use environment variables instead of hardcoding API keys:
+
+<CodeGroup>
+```bash OpenAI
+export OPENAI_API_KEY="sk-..."
+```
+
+```bash Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+```bash Google
+export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
+```
+
+```bash AI Gateway
+export AI_GATEWAY_API_KEY="..."
+```
+</CodeGroup>
+
+Then omit the `apiKey` field in your config:
+
+```json
+{
+  "provider": {
+    "flavor": "openai"
+  },
+  "model": "gpt-4o"
+}
+```
+
+## Knowledge Graph Model
+
+Optionally specify a separate (typically faster/cheaper) model for knowledge graph processing:
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-..."
+  },
+  "model": "gpt-4o",
+  "knowledgeGraphModel": "gpt-4o-mini"
+}
+```
+
+<Info>
+The knowledge graph model is used for extracting entities and relationships from emails and meetings. Using a faster model can significantly reduce processing time.
+</Info>
+
+## Custom Headers
+
+Add custom HTTP headers for advanced use cases:
+
+```json
+{
+  "provider": {
+    "flavor": "openai",
+    "apiKey": "sk-...",
+    "headers": {
+      "X-Custom-Header": "value",
+      "Organization": "org-id"
+    }
+  },
+  "model": "gpt-4o"
+}
+```
+
+## Testing Configuration
+
+After creating your config file, Rowboat will automatically test the connection on startup. Check the logs for any connection errors.
+
+<Warning>
+**Connection Issues?**
+
+- Verify your API key is correct
+- Check that the baseURL is accessible
+- For local models (Ollama), ensure the server is running
+- Check firewall settings for network requests
+</Warning>
+
+## Switching Models
+
+You can switch models at any time by editing `models.json`. Changes take effect after restarting Rowboat.
+
+## Cost Optimization Tips
+
+1. **Use different models for different tasks**: Set a cheaper `knowledgeGraphModel` for background processing
+2. **Try local models**: Use Ollama for privacy and zero API costs
+3. **OpenRouter auto**: Let OpenRouter pick the best price/performance model
+4. **Monitor usage**: Keep track of API costs in your provider dashboard

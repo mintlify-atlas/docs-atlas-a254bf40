@@ -1,0 +1,658 @@
+---
+title: OAuth Implementation
+description: OAuth 2.0 + PKCE flows for secure third-party integrations
+---
+
+Rowboat implements **OAuth 2.0 with PKCE** (Proof Key for Code Exchange) for secure authentication with third-party services like Google and Fireflies.ai.
+
+## Architecture Overview
+
+```
+Rowboat App
+    ↓
+@x/core/auth/
+    ↓
+openid-client (RFC 7636 PKCE)
+    ↓
+┌──────────┬──────────┬──────────┐
+│  Google  │Fireflies │   ...    │
+└──────────┴──────────┴──────────┘
+```
+
+## OAuth Flow with PKCE
+
+<Info>
+**PKCE (RFC 7636)** eliminates the need for client secrets in native/desktop apps. Rowboat uses S256 code challenge method for maximum security.
+</Info>
+
+### Authorization Flow Diagram
+
+```
+┌──────────┐                                      ┌──────────┐
+│ Rowboat  │                                      │  OAuth   │
+│   App    │                                      │ Provider │
+└────┬─────┘                                      └────┬─────┘
+     │                                                 │
+     │ 1. Generate PKCE verifier + challenge           │
+     ├─────────────────────────────────────────────────┤
+     │                                                 │
+     │ 2. Open browser with authorization URL          │
+     │    + code_challenge + state                     │
+     ├────────────────────────────────────────────────>│
+     │                                                 │
+     │                            3. User authenticates│
+     │                               & grants consent  │
+     │                                                 │
+     │ 4. Redirect to localhost with code + state      │
+     │<────────────────────────────────────────────────┤
+     │                                                 │
+     │ 5. Exchange code + verifier for tokens          │
+     ├────────────────────────────────────────────────>│
+     │                                                 │
+     │ 6. Return access_token + refresh_token          │
+     │<────────────────────────────────────────────────┤
+     │                                                 │
+     │ 7. Store tokens in secure storage               │
+     │                                                 │
+```
+
+## Core Components
+
+### 1. Provider Configuration
+
+Each OAuth provider has a configuration defining discovery and client registration:
+
+<Accordion title="Provider Config Schema (providers.ts)">
+
+**Location:** `core/src/auth/providers.ts`
+
+**Schema:**
+```typescript
+interface ProviderConfig {
+  discovery: {
+    mode: 'issuer' | 'static';
+    issuer?: string;              // For OIDC discovery
+    authorizationEndpoint?: string; // For static config
+    tokenEndpoint?: string;       // For static config
+    revocationEndpoint?: string;  // Optional
+  };
+  client: {
+    mode: 'static' | 'dcr';       // Static ID or Dynamic Registration
+    clientId?: string;            // For static mode
+    registrationEndpoint?: string; // For DCR mode
+  };
+  scopes: string[];               // Requested OAuth scopes
+}
+```
+
+**Google Configuration:**
+```typescript
+const providerConfigs: ProviderConfig = {
+  google: {
+    discovery: {
+      mode: 'issuer',
+      issuer: 'https://accounts.google.com',
+    },
+    client: {
+      mode: 'static',
+      // clientId provided by user or environment
+    },
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/calendar.events.readonly',
+      'https://www.googleapis.com/auth/drive.readonly',
+    ],
+  },
+};
+```
+
+**Fireflies Configuration (DCR):**
+```typescript
+const providerConfigs: ProviderConfig = {
+  'fireflies-ai': {
+    discovery: {
+      mode: 'issuer',
+      issuer: 'https://api.fireflies.ai/.well-known/oauth-authorization-server',
+    },
+    client: {
+      mode: 'dcr', // Dynamic Client Registration
+    },
+    scopes: ['profile', 'email'],
+  },
+};
+```
+
+</Accordion>
+
+### 2. OAuth Client (oauth-client.ts)
+
+<Accordion title="Discovery & Configuration">
+
+**Discovery Process:**
+
+1. **OIDC Discovery (issuer mode):**
+   - Fetch `{issuer}/.well-known/openid-configuration`
+   - Extract `authorization_endpoint`, `token_endpoint`, etc.
+   - Cache configuration per `issuer:clientId`
+
+2. **Static Configuration:**
+   - Use pre-configured endpoints
+   - No discovery request needed
+
+**Implementation:**
+```typescript
+// core/src/auth/oauth-client.ts
+import * as client from 'openid-client';
+
+const configCache = new Map<string, client.Configuration>();
+
+export async function discoverConfiguration(
+  issuerUrl: string,
+  clientId: string
+): Promise<client.Configuration> {
+  const cacheKey = `${issuerUrl}:${clientId}`;
+  
+  const cached = configCache.get(cacheKey);
+  if (cached) return cached;
+  
+  console.log(`[OAuth] Discovering ${issuerUrl}...`);
+  const config = await client.discovery(
+    new URL(issuerUrl),
+    clientId,
+    undefined,        // no client_secret (PKCE)
+    client.None()     // PKCE auth
+  );
+  
+  configCache.set(cacheKey, config);
+  return config;
+}
+```
+
+</Accordion>
+
+<Accordion title="PKCE Generation">
+
+**Purpose:** Generate cryptographically secure code verifier and challenge
+
+**Implementation:**
+```typescript
+export async function generatePKCE(): Promise<{
+  verifier: string;
+  challenge: string;
+}> {
+  const verifier = client.randomPKCECodeVerifier();
+  const challenge = await client.calculatePKCECodeChallenge(verifier);
+  return { verifier, challenge };
+}
+```
+
+**RFC 7636 Spec:**
+- Verifier: 43-128 characters, base64url-encoded
+- Challenge: SHA-256 hash of verifier, base64url-encoded
+- Method: S256 (SHA-256)
+
+</Accordion>
+
+<Accordion title="Authorization URL Building">
+
+**Process:**
+1. Generate PKCE verifier + challenge
+2. Generate random state (CSRF protection)
+3. Build authorization URL with parameters
+4. Open URL in system browser
+
+**Implementation:**
+```typescript
+export function buildAuthorizationUrl(
+  config: client.Configuration,
+  params: Record<string, string>
+): URL {
+  return client.buildAuthorizationUrl(config, {
+    code_challenge_method: 'S256',
+    ...params,
+  });
+}
+```
+
+**Example URL:**
+```
+https://accounts.google.com/o/oauth2/v2/auth?
+  client_id=123456.apps.googleusercontent.com
+  &redirect_uri=http://localhost:8080/callback
+  &response_type=code
+  &scope=openid email profile
+  &state=abc123
+  &code_challenge=xyz789
+  &code_challenge_method=S256
+```
+
+</Accordion>
+
+<Accordion title="Token Exchange">
+
+**Process:**
+1. Capture authorization code from redirect
+2. Validate state matches (CSRF protection)
+3. Exchange code + verifier for tokens
+4. Parse and return tokens
+
+**Implementation:**
+```typescript
+export async function exchangeCodeForTokens(
+  config: client.Configuration,
+  callbackUrl: URL,
+  codeVerifier: string,
+  expectedState: string
+): Promise<OAuthTokens> {
+  console.log(`[OAuth] Exchanging code for tokens...`);
+  
+  const response = await client.authorizationCodeGrant(
+    config,
+    callbackUrl,
+    {
+      pkceCodeVerifier: codeVerifier,
+      expectedState,
+    }
+  );
+  
+  return toOAuthTokens(response);
+}
+```
+
+**Token Response:**
+```typescript
+interface OAuthTokens {
+  access_token: string;
+  refresh_token: string | null;
+  expires_at: number;      // Unix timestamp
+  token_type: 'Bearer';
+  scopes?: string[];
+}
+```
+
+</Accordion>
+
+<Accordion title="Token Refresh">
+
+**Process:**
+1. Check if access token is expired
+2. Use refresh token to get new access token
+3. Preserve existing scopes/refresh token if not returned
+
+**Implementation:**
+```typescript
+export async function refreshTokens(
+  config: client.Configuration,
+  refreshToken: string,
+  existingScopes?: string[]
+): Promise<OAuthTokens> {
+  console.log(`[OAuth] Refreshing access token...`);
+  
+  const response = await client.refreshTokenGrant(config, refreshToken);
+  const tokens = toOAuthTokens(response);
+  
+  // Preserve existing scopes if server didn't return them
+  if (!tokens.scopes && existingScopes) {
+    tokens.scopes = existingScopes;
+  }
+  
+  // Preserve existing refresh token if server didn't return new one
+  if (!tokens.refresh_token) {
+    tokens.refresh_token = refreshToken;
+  }
+  
+  return tokens;
+}
+
+export function isTokenExpired(tokens: OAuthTokens): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  return tokens.expires_at <= now;
+}
+```
+
+</Accordion>
+
+### 3. Dynamic Client Registration (DCR)
+
+<Info>
+**DCR (RFC 7591)** allows apps to register OAuth clients programmatically, eliminating the need for pre-registered client IDs.
+</Info>
+
+<Accordion title="DCR Flow">
+
+**When to use DCR:**
+- Provider supports RFC 7591
+- No pre-registered client ID available
+- Want to avoid hardcoding client credentials
+
+**Implementation:**
+```typescript
+export async function registerClient(
+  issuerUrl: string,
+  redirectUris: string[],
+  scopes: string[],
+  clientName: string = 'RowboatX Desktop App'
+): Promise<{
+  config: client.Configuration;
+  registration: ClientRegistrationResponse;
+}> {
+  console.log(`[OAuth] Registering client via DCR at ${issuerUrl}...`);
+  
+  const config = await client.dynamicClientRegistration(
+    new URL(issuerUrl),
+    {
+      redirect_uris: redirectUris,
+      token_endpoint_auth_method: 'none', // PKCE flow
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      client_name: clientName,
+      scope: scopes.join(' '),
+    },
+    client.None()
+  );
+  
+  const metadata = config.clientMetadata();
+  console.log(`[OAuth] DCR complete, client_id: ${metadata.client_id}`);
+  
+  // Extract registration response for persistence
+  const registration = {
+    client_id: metadata.client_id,
+    client_secret: metadata.client_secret,
+    client_id_issued_at: metadata.client_id_issued_at,
+    client_secret_expires_at: metadata.client_secret_expires_at,
+  };
+  
+  return { config, registration };
+}
+```
+
+**Registration Response:**
+```typescript
+interface ClientRegistrationResponse {
+  client_id: string;
+  client_secret?: string;           // Not used in PKCE
+  client_id_issued_at?: number;
+  client_secret_expires_at?: number;
+}
+```
+
+</Accordion>
+
+### 4. Token Storage (repo.ts)
+
+<Accordion title="Token Repository">
+
+**Purpose:** Securely persist OAuth tokens per provider
+
+**Storage Location:** `~/.rowboat/auth/{provider}.json`
+
+**Schema:**
+```typescript
+interface StoredAuth {
+  provider: string;
+  tokens: OAuthTokens;
+  registration?: ClientRegistrationResponse; // For DCR
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+**Implementation:**
+```typescript
+// core/src/auth/repo.ts
+class FSAuthRepo {
+  private authDir = path.join(WorkDir, 'auth');
+  
+  async saveTokens(
+    provider: string,
+    tokens: OAuthTokens,
+    registration?: ClientRegistrationResponse
+  ): Promise<void> {
+    const authFile = path.join(this.authDir, `${provider}.json`);
+    const data: StoredAuth = {
+      provider,
+      tokens,
+      registration,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    await fs.writeFile(authFile, JSON.stringify(data, null, 2));
+  }
+  
+  async getTokens(provider: string): Promise<OAuthTokens | null> {
+    const authFile = path.join(this.authDir, `${provider}.json`);
+    
+    try {
+      const data = await fs.readFile(authFile, 'utf8');
+      const stored: StoredAuth = JSON.parse(data);
+      return stored.tokens;
+    } catch {
+      return null;
+    }
+  }
+  
+  async deleteTokens(provider: string): Promise<void> {
+    const authFile = path.join(this.authDir, `${provider}.json`);
+    await fs.unlink(authFile);
+  }
+}
+```
+
+</Accordion>
+
+## Complete OAuth Flow Example
+
+### Google OAuth Flow
+
+```typescript
+import {
+  discoverConfiguration,
+  generatePKCE,
+  generateState,
+  buildAuthorizationUrl,
+  exchangeCodeForTokens,
+} from '@x/core/dist/auth/oauth-client.js';
+import { getProviderConfig } from '@x/core/dist/auth/providers.js';
+import { FSAuthRepo } from '@x/core/dist/auth/repo.js';
+
+// 1. Get provider configuration
+const providerConfig = getProviderConfig('google');
+const clientId = '123456.apps.googleusercontent.com'; // From Google Console
+
+// 2. Discover OAuth endpoints
+const config = await discoverConfiguration(
+  providerConfig.discovery.issuer,
+  clientId
+);
+
+// 3. Generate PKCE parameters
+const { verifier, challenge } = await generatePKCE();
+const state = generateState();
+
+// 4. Build authorization URL
+const authUrl = buildAuthorizationUrl(config, {
+  redirect_uri: 'http://localhost:8080/callback',
+  scope: providerConfig.scopes.join(' '),
+  state,
+  code_challenge: challenge,
+  code_challenge_method: 'S256',
+});
+
+// 5. Open browser and wait for callback
+shell.openExternal(authUrl.toString());
+const callbackUrl = await waitForCallback(); // Start local server
+
+// 6. Exchange authorization code for tokens
+const tokens = await exchangeCodeForTokens(
+  config,
+  callbackUrl,
+  verifier,
+  state
+);
+
+// 7. Save tokens
+const authRepo = new FSAuthRepo();
+await authRepo.saveTokens('google', tokens);
+
+console.log('OAuth flow complete!');
+```
+
+## Security Considerations
+
+<Warning>
+**NEVER store client secrets in desktop apps.** Use PKCE instead, which eliminates the need for secrets.
+</Warning>
+
+<Accordion title="PKCE Security Benefits">
+
+- **No client secret:** Cannot be extracted from app bundle
+- **One-time verifier:** Different verifier for each authorization
+- **Challenge verification:** Server validates verifier matches challenge
+- **MITM protection:** Attacker cannot use intercepted code without verifier
+
+</Accordion>
+
+<Accordion title="State Parameter (CSRF Protection)">
+
+**Purpose:** Prevent cross-site request forgery attacks
+
+**How it works:**
+1. Generate random state before authorization
+2. Include state in authorization URL
+3. Provider returns state in callback
+4. Validate returned state matches original
+
+**Implementation:**
+```typescript
+const state = generateState(); // Random 32-char string
+
+// Store state temporarily (in-memory or session)
+const pendingStates = new Map<string, { verifier: string }>();
+pendingStates.set(state, { verifier });
+
+// Validate on callback
+const returnedState = callbackUrl.searchParams.get('state');
+if (returnedState !== state) {
+  throw new Error('State mismatch - possible CSRF attack');
+}
+```
+
+</Accordion>
+
+<Accordion title="Redirect URI Security">
+
+**Best practices:**
+- Use `http://localhost:{port}/callback` for desktop apps
+- Choose random available port (8080-8090)
+- Close local server after receiving callback
+- Validate redirect URI matches registered URI
+
+**Implementation:**
+```typescript
+import http from 'http';
+
+async function waitForCallback(): Promise<URL> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url!, `http://localhost:8080`);
+      
+      // Send success response to browser
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<h1>Authorization successful! You can close this window.</h1>');
+      
+      // Close server and resolve
+      server.close();
+      resolve(url);
+    });
+    
+    server.listen(8080);
+  });
+}
+```
+
+</Accordion>
+
+<Accordion title="Token Storage Security">
+
+**Current implementation:**
+- Tokens stored in `~/.rowboat/auth/` as JSON files
+- File permissions: 600 (owner read/write only)
+- No encryption (relies on OS file permissions)
+
+**Future improvements:**
+- Use OS keychain (macOS Keychain, Windows Credential Manager)
+- Encrypt tokens at rest
+- Use secure enclave for token encryption keys
+
+</Accordion>
+
+## Error Handling
+
+<Accordion title="Common OAuth Errors">
+
+```typescript
+try {
+  const tokens = await exchangeCodeForTokens(...);
+} catch (error) {
+  if (error instanceof Error) {
+    // Handle specific errors
+    if (error.message.includes('invalid_grant')) {
+      console.error('Authorization code expired or invalid');
+    } else if (error.message.includes('invalid_client')) {
+      console.error('Invalid client ID or configuration');
+    } else if (error.message.includes('access_denied')) {
+      console.error('User denied authorization');
+    } else {
+      console.error('OAuth error:', error.message);
+    }
+  }
+}
+```
+
+**Error Types:**
+- `invalid_grant` - Code expired, already used, or invalid
+- `invalid_client` - Client ID not recognized
+- `invalid_request` - Missing required parameters
+- `access_denied` - User declined authorization
+- `server_error` - Provider had an internal error
+
+</Accordion>
+
+## Testing OAuth Flows
+
+<Accordion title="Manual Testing">
+
+```typescript
+// Test discovery
+const config = await discoverConfiguration(
+  'https://accounts.google.com',
+  'test-client-id'
+);
+console.log('Discovery successful:', config);
+
+// Test PKCE generation
+const { verifier, challenge } = await generatePKCE();
+console.log('Verifier:', verifier);
+console.log('Challenge:', challenge);
+
+// Test authorization URL
+const authUrl = buildAuthorizationUrl(config, {
+  redirect_uri: 'http://localhost:8080/callback',
+  scope: 'openid email',
+  state: 'test-state',
+  code_challenge: challenge,
+  code_challenge_method: 'S256',
+});
+console.log('Auth URL:', authUrl.toString());
+```
+
+</Accordion>
+
+## Code References
+
+- OAuth Client: `core/src/auth/oauth-client.ts:1`
+- Provider Configs: `core/src/auth/providers.ts:53`
+- Token Repository: `core/src/auth/repo.ts`
+- Token Types: `core/src/auth/types.ts`
+- Client ID Provider: `core/src/auth/provider-client-id.ts`
